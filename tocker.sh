@@ -28,6 +28,8 @@ tocker_pull() {
 			permission_wrapper rm $out_path > /dev/null 2>&1
 			permission_wrapper rm .dockerenv > /dev/null 2>&1
 			
+		else
+			echo "image $image_name_modified already exists you can run it using tocker run "
 		fi
 	else
 		echo "please login into docker first"
