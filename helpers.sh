@@ -13,11 +13,12 @@
 set_permissions () {
 	sudo groupadd tocker
 	sudo gpasswd -a $USER tocker
-	sudo chmod g=rws $BASE_DIR
+	sudo chmod g=rwx $BASE_DIR
+	sudo chmod g+s $BASE_DIR
 	sudo chown :tocker $BASE_DIR
 	# setting the tocker owner of the group and setting the setgid bit doesnt give permission while running sg tocker -c
-	# was fixed by setting the acl for some reason it doesnt seem to work but like this
-	sudo setfacl -dm "m::rwx,group:tocker:rwx" $BASE_DIR
+	# that was because the default permissions on the group was r-s which is the so assigning the mask solved the issue
+	sudo setfacl -dm "m::rwx" $BASE_DIR
 }
 
 #solving permission issues by attaching the sg tocker -c prefix if the user doesnt have the tocker group applied if it is 
@@ -36,7 +37,8 @@ set_prefix () {
 # permission wrapper is done like this to not wrap each command in double quotes to work with
 # prefixes enables a better typing experience for me this is building upon the hack but fuck do i knwo w/e
 permission_wrapper () {
-	required_command=$@
+	required_command="$@"
+	echo "the required command is:$required_command"
 	$PREFIX "$required_command"
 }
 

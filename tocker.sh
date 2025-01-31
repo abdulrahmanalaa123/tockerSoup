@@ -36,7 +36,7 @@ tocker_ps () {
 }
 
 
-tocker_init
 set_prefix
+tocker_init
 tocker_pull alpine:latest
-tocker_ps 
+#tocker_ps 
