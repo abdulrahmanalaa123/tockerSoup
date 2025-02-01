@@ -38,26 +38,31 @@ set_prefix () {
 # prefixes enables a better typing experience for me this is building upon the hack but fuck do i knwo w/e
 permission_wrapper () {
 	required_command="$@"
-	echo "the required command is:$required_command"
 	$PREFIX "$required_command"
 }
 
-tocker_add_image () {
-	declare image=$1
-	declare id=$(uuidgen)
-	echo "$image=$id" |  permission_wrapper tee "$BASE_DIR/.ids" > /dev/null 2>&1
-	return 0
+image_name_formatter () {
+	echo "${1//:/_}"
 }
 
-tocker_remove_image () {
+tocker_add_container () {
 	declare image=$1
-	permission_wrapper sed -E -i "/$image/d" "$BASE_DIR/.ids"
+	id=$(uuidgen)
+	echo "$image=$id" |  permission_wrapper tee -a "$BASE_DIR/.ids" > /dev/null 2>&1
 }
 
-get_id () {
-	declare image=$1
-	id=$( grep -oP "(?<=$image=)\S*" $BASE_DIR/.ids)
-	[ -z $id ] && return 1
-	return 0
+tocker_remove_container () {
+	declare container_id=$1
+	permission_wrapper sed -E -i "/$container_id/d" "$BASE_DIR/.ids"
+}
+
+get_full_id () {
+	declare id_part=$1
+	#get all whats after the number if it returns a full uuid then echo and use its value wherever needed
+	declare id=$(grep -oP "$1\S+$" $BASE_DIR/.ids)
+	if [[ -n $id ]] && [[ $(echo $id | wc -c) -eq 37 ]]
+	then
+		echo $id
+	fi
 }
 
