@@ -5,9 +5,7 @@
 
 set -o errexit -o nounset -o pipefail; shopt -s nullglob
 #set -o nounset -o pipefail; shopt -s nullglob
-
 . ./helpers.sh
-. ./init.sh
 
 # first i was treating images as they are the containers and creating a unique image for each container and seems like a waster
 # so i will do the container runtime is extracting the container into a tempfs using the uuid and deleting it using it as well and
@@ -52,17 +50,29 @@ tocker_run () {
        	# if input is part of a valid uuid
 	formatted_input=$(image_name_formatter $input)
 	declare id=$(get_full_id $formatted_input)
-	if [[ -n $id ]]; then
-	   #run using id an already existing image
-	   echo "bla"
-	else
+	if [[ -z $id ]]; then
 	   declare path="$OUT_PATH/$formatted_input.tar.gz"
 	   if [[ ! -e $path ]]
 	   then
 		   tocker_pull $input
 	   fi
+	   # id is present globally after creation
 	   tocker_create $formatted_input
 	fi
+	
+	#TODO
+	# cgroups using systemd or the new way in general
+	# unsharing with the mount options 
+	# adding options in the command
+	# adding ps to list all running containers
+	# network namesapce
+	# default_cgroups defined in init
+	# process types isolation as well defined \
+	# forking the process would change how you would grep the process id
+	# using the -f command
+	# -rfpiu --mount-proc=$OUT_PATH/tocker_images/id/proc
+	# systemd run unit=$id chroot /$OUT_PATH/tocker_images/id command="/bin/sh -c "given command probably"" 
+	# 
 
 }
 
@@ -73,13 +83,7 @@ tocker_create () {
 	declare output_dir="$OUT_PATH/$id"
 	declare path="$OUT_PATH/$image.tar.gz"
 	permission_wrapper mkdir $output_dir
-	permission_wrapper tar -mxf $path --directory="$output_dir" --no-same-owner --no-same-permissions
-	# cleanup in case of failure 
-	if [[ $? -ne 0 ]]
-	then
-		rmdir $output_dir
-		tocker_remove_container $id
-	fi
+	permission_wrapper tar -mxf $path --directory="$output_dir" --no-same-owner --no-same-permissions || (rmdir $output_dir && tocker_remove_container $id)
 }
 
 get_container_procid () {

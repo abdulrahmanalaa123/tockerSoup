@@ -10,16 +10,10 @@
 # as a group or forking the rest of the script inside the group tocker
 # sudo su -l $USER
 
-set_permissions () {
-	sudo groupadd tocker
-	sudo gpasswd -a $USER tocker
-	sudo chmod g=rwx $BASE_DIR
-	sudo chmod g+s $BASE_DIR
-	sudo chown :tocker $BASE_DIR
-	# setting the tocker owner of the group and setting the setgid bit doesnt give permission while running sg tocker -c
-	# that was because the default permissions on the group was r-s which is the so assigning the mask solved the issue
-	sudo setfacl -dm "m::rwx" $BASE_DIR
-}
+BASE_DIR=/var/tocker
+OUT_PATH=$BASE_DIR/tocker_images
+META_PATH=$BASE_DIR/tocker_meta
+
 
 #solving permission issues by attaching the sg tocker -c prefix if the user doesnt have the tocker group applied if it is 
 #then the prefix is not needed
@@ -48,7 +42,7 @@ image_name_formatter () {
 tocker_add_container () {
 	declare image=$1
 	id=$(uuidgen)
-	echo "$image=$id" |  permission_wrapper tee -a "$BASE_DIR/.ids" > /dev/null 2>&1
+	echo "$image=$id" |  permission_wrapper tee -a "$BASE_DIR/.ids" > /dev/null 2>&1 
 }
 
 tocker_remove_container () {
