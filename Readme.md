@@ -14,7 +14,6 @@ tocker container stop <container_id>
 tocker image get <image_name>
 tocker container (la|ls|l)
 tocker image (la|ls|l)
-e
 ```
 # Learning Journey
 - This project is a capstone project as well as passion-driven learning several linux topics 
