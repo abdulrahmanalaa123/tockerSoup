@@ -14,9 +14,27 @@ endef
 
 export SUDOERS_VAR
 
-#tocker parser would be the entrypoint and would call from opts/tocker/helpers.sh opts/tocker/tocker.sh
+define HELP_FILE
+tocker container run  --cpuquota [0-100] --iowrite [num(B|K|M|G|T)] --ioread [num(B|K|M|G|T)] --memmax [num(B|K|M|G|T)] --memmin [num(B|K|M|G|T)] --memhigh [num(B|K|M|G|T)] <image_name> <command> # images are associate with an entryPoint can be done when pulling
+tocker container exec <container_id> <command>
+tocker container start <container_id>  keep running the image on the latest entrypoint
+tocker container rm -rf <container_id>  -r remove the container alongside its respective image -f removes the conatainer and stops it abruptly
+tocker image rm -f <image_name> 
+tocker container stop <container_id>
+tocker image get <image_name>
+tocker container (la|ls|l)
+tocker image (la|ls|l)
+endef
+export HELP_FILE
+# empty make to stop from running it by mistake
+
+
 #check_current_dir:
-	#mv ./tocker.sh ~/bin/tocker
+	#mv ./tockerParser.sh ~/bin/tocker
+#tocker parser would be the entrypoint and would call from opts/tocker/helpers opts/tocker/tocker
+#and help would be from /opt/tocker/help
+help:
+	echo "$$HELP_FILE"
 open_tocker_shell: sudoer_tocker
 	echo "You're now in a tocker group shell you can relogin your system after running the tocker commands right now to be able to run tocker regularly"
 	newgrp tocker 
