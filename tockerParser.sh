@@ -13,7 +13,7 @@ container_run () {
 			OPTION=${1:2}; 
 			if [[ $OPTION =~ = ]] 
 			then
-				declare "TOCKER_${OPTION/=*/}=${OPTION/*=/}" | declare "TOCKER_${OPTION}=x"
+				declare "TOCKER_${OPTION/=*/}=${OPTION/*=/}" || declare "TOCKER_${OPTION}=x"
 				shift; 
 			fi
 		done
