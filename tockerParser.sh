@@ -1,6 +1,9 @@
+#!/bin/bash
 # man 5 systemd.resource-control
 # default CPUQuota=5% IOreadbandwith=20M/s by default B,K,M,G,T IOwritebandwith=  MemoryMin=1G(requested)B,K,M,G,T MemoryMax=2G(requested)B,K,M,G,T(absolute limit)  MemoryHigh2G(softcap)=B,K,M,G,T AllowedCPUs=1,2 (specify which cpus are specified)
 # either enable accounting on the userslice to enable quoting the services i presume 
+
+. ./tocker.sh
 
 container_run () {
 	#cpuquota 0-100% including floats
@@ -41,7 +44,10 @@ container_run () {
 				return 1
 			fi
 		done
-
+		image=$1
+		entry=$2
+		
+		tocker_run "$1" "$2"
 	fi
 }
 
@@ -126,14 +132,4 @@ image_parser () {
 	esac	
 }
 
-parser container run --cpuquota 20 --ioread 50B
-parser container run --cpuquota=20 --ioread=50B
-parser image get
-parser container rm
-parser container exec
-parser container stop
-parser container start
-parser image rm
-parser image ls
-parser container ls
-
+parser container run --cpuquota 20 --ioread 50B alpine /bin/bash

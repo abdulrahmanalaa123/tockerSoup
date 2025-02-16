@@ -3,7 +3,7 @@
 # excessive use of declare to ensure block scoping 
 # set the script to exit on error and error on unset vars and return 1 if one pipeline command fail
 
-set -o errexit -o nounset -o pipefail; shopt -s nullglob
+set -o errexit -o pipefail; shopt -s nullglob
 #set -o nounset -o pipefail; shopt -s nullglob
 . ./helpers.sh
 
@@ -51,14 +51,6 @@ tocker_pull() {
 	fi
 }
 
-#tocker_options () {
-#	# options are parsed and put into a declarative array with comma sperated values 
-#	# options declarative array {cgroups:",,,,,","namespaces":,,,,,,,"virtual_eth":,,,,,entrypoint_command:{taken as is}}
-#	# what would be the options
-#	#cgroups using systemd and assigning namespaces in meta as well as virtual network
-#}
-# image_id is defined in pull using the add image with the var id
-
 tocker_start () {
 	#Substring expanision	
 	declare input=${@: -1}
@@ -68,20 +60,17 @@ tocker_start () {
 		echo  "contianer $id doesnt exist probably check youre containers using tocker container ls -a"
 	fi
 }
+
 tocker_run () {
-	image=$1
-       	# if input is part of a valid uuid
-	formatted_input=$(image_name_formatter $input)
+	declare image=$1
+	formatted_input=$(image_name_formatter $image)
 	declare path="$OUT_PATH/$formatted_input.tar.gz"
-	if [[ ! -e $path ]]
-	then
-	        tocker_pull $input
-	fi
-	# TODO 
-	# get it form the image meta file create an aextractor helper function
-	entry=${2:="/bin/sh"}
+	echo "$path"
+	[[ -e $path ]] || tocker_pull $image
+
+	entry=${2:=$(grep "ENTRYPOINT" $IMAGE_META_PATH/$formatted_input.env | cut -d'=' -f2)}
 	# id is present globally after creation
-	tocker_create $formatted_input
+	tocker_create $formatted_input $entry
 	
 	#TODO
 	# cgroups using systemd or the new way in general
@@ -101,9 +90,10 @@ tocker_run () {
 
 tocker_create () {
 	declare image=$1
-	tocker_add_container $image
+	declare entry=$2
+	tocker_add_container $image $entry
 	# declaring directory by added directory id each unique id specifying unique meta such as creation date last used, etc.
-	declare output_dir="$OUT_PATH/$id"
+	declare output_dir="$CONT_PATH/$id"
 	declare path="$OUT_PATH/$image.tar.gz"
 	mkdir $output_dir
 	tar -mxf $path --directory="$output_dir" --no-same-owner --no-same-permissions || (rmdir $output_dir && tocker_remove_container $id)
@@ -126,6 +116,3 @@ tocker_ps () {
 	echo -e ${out/$'\n'/$'\t'}
 }
 
-
-
-tocker_pull alpine:latest
