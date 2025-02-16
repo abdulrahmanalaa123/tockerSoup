@@ -12,7 +12,9 @@
 
 BASE_DIR=/var/tocker
 OUT_PATH=$BASE_DIR/tocker_images
-META_PATH=$BASE_DIR/tocker_meta
+IMAGE_META_PATH=$BASE_DIR/tocker_meta/images
+CONT_META_PATH=$BASE_DIR/tocker_meta/containers
+CONT_PATH=$BASE_DIR/tocker_containers
 
 
 #solving permission issues by attaching the sg tocker -c prefix if the user doesnt have the tocker group applied if it is 
@@ -42,12 +44,22 @@ image_name_formatter () {
 tocker_add_container () {
 	declare image=$1
 	id=$(uuidgen)
-	echo "$image=$id" |  permission_wrapper tee -a "$BASE_DIR/.ids" > /dev/null 2>&1 
+	#TODO
+	# get the entry point if not provided	
+	# name it using the id 
+	# findign the container is by grepping the id for the meta file
+	# add the environmental variables and container parameters like cgroups specified
 }
 
-tocker_remove_container () {
-	declare container_id=$1
-	permission_wrapper sed -E -i "/$container_id/d" "$BASE_DIR/.ids"
+tocker_add_image () {
+	declare image=$1
+	id=$(uuidgen)
+	echo "$image=$id" |  tee -a "$IMAGE_META_PATH/.ids" 
+}
+
+tocker_remove_image () {
+	declare image=$1
+	sed -E -i "/$image/d" "$IMAGE_META_PATH/.ids"
 }
 
 get_full_id () {

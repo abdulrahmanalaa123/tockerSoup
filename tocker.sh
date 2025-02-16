@@ -18,19 +18,34 @@ tocker_pull() {
 	if [[ -n $(sed -nE '/docker.io/p' ~/.docker/config.json) ]]
 	then
 		declare out_path="$OUT_PATH/$image_name_modified.tar.gz"
+		declare env_file="$IMAGE_META_PATH/$image_name_modified.env"
 		if [[ -e $out_path ]]
 		then
 			echo "image $image already exists"
 			return 1
 		fi
 		declare temp_cont=$(docker create $image)
-		docker container export $temp_cont |  permission_wrapper tee $out_path > /dev/null 2>&1
-		docker container rm $temp_cont > /dev/null
-		docker image rm $image		
-		
-		# assigning an id to given image 
-		# removing for cleanup even after failure yet not adding it to the ids if it doesnt work
-		permission_wrapper rm .dockerenv > /dev/null 2>&1
+
+		entry_point=$(docker inspect --type=image --format='{{json .Config.Entrypoint}} {{json .Config.Cmd}}' $image)
+		#removing nulls and quotations
+ 		entry_point=${entry_point//[\"\[\]]/}
+		entry_point=${entry_point//null/}
+		# get all the environmental variables of the image
+		environment_vars=$(docker inspect --type=image --format='{{json .Config.Env}}' $image)
+		# remove square brackets and sperate on ", which indicates a new environmental variable to not contradict any variable with commas inside the variable value 
+ 		environment_vars=${environment_vars//[\[\]]/}
+		environment_vars=${environment_vars//\",/ }
+		# finally remove extra quotations
+		environment_vars=(${environment_vars//\"/})
+		docker container export $temp_cont |  tee $out_path > /dev/null 2>&1
+		docker container rm $temp_cont && docker image rm $image 
+
+		echo "ENTRYPOINT=$entry_point" > $env_file
+		for env in $environment_vars
+		do
+			echo $env >> $env_file
+		done
+		tocker_add_image $image_name_modified 
 	else
 		echo "please login into docker first"
 	fi
@@ -44,21 +59,27 @@ tocker_pull() {
 #}
 # image_id is defined in pull using the add image with the var id
 
-tocker_run () {
+tocker_start () {
 	#Substring expanision	
 	declare input=${@: -1}
+	declare id=$(get_full_id $input)
+
+	if [[ -z $id ]]; then
+		echo  "contianer $id doesnt exist probably check youre containers using tocker container ls -a"
+	fi
+}
+tocker_run () {
+	image=$1
+	entry=${2:="/bin/sh"}
        	# if input is part of a valid uuid
 	formatted_input=$(image_name_formatter $input)
-	declare id=$(get_full_id $formatted_input)
-	if [[ -z $id ]]; then
-	   declare path="$OUT_PATH/$formatted_input.tar.gz"
-	   if [[ ! -e $path ]]
-	   then
-		   tocker_pull $input
-	   fi
-	   # id is present globally after creation
-	   tocker_create $formatted_input
+	declare path="$OUT_PATH/$formatted_input.tar.gz"
+	if [[ ! -e $path ]]
+	then
+	        tocker_pull $input
 	fi
+	# id is present globally after creation
+	tocker_create $formatted_input
 	
 	#TODO
 	# cgroups using systemd or the new way in general
@@ -82,8 +103,8 @@ tocker_create () {
 	# declaring directory by added directory id each unique id specifying unique meta such as creation date last used, etc.
 	declare output_dir="$OUT_PATH/$id"
 	declare path="$OUT_PATH/$image.tar.gz"
-	permission_wrapper mkdir $output_dir
-	permission_wrapper tar -mxf $path --directory="$output_dir" --no-same-owner --no-same-permissions || (rmdir $output_dir && tocker_remove_container $id)
+	mkdir $output_dir
+	tar -mxf $path --directory="$output_dir" --no-same-owner --no-same-permissions || (rmdir $output_dir && tocker_remove_container $id)
 }
 
 get_container_procid () {
@@ -104,6 +125,5 @@ tocker_ps () {
 }
 
 
-set_prefix
-tocker_init
-tocker_run alpine:latest
+
+tocker_pull alpine:latest

@@ -2,21 +2,46 @@
 # default CPUQuota=5% IOreadbandwith=20M/s by default B,K,M,G,T IOwritebandwith=  MemoryMin=1G(requested)B,K,M,G,T MemoryMax=2G(requested)B,K,M,G,T(absolute limit)  MemoryHigh2G(softcap)=B,K,M,G,T AllowedCPUs=1,2 (specify which cpus are specified)
 # either enable accounting on the userslice to enable quoting the services i presume 
 
-
 container_run () {
-	echo running
-
+	#cpuquota 0-100% including floats
+	# all the rest are digits including floats followed by B,K,M,G,T
+	declare -A VAL_VALIDATION=(["cpuquota"]="0*([1-9][0-9]?|100){1}(.0*([1-9][0-9]?))?" \
+		["ioread"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
+		["iowrite"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
+		["memmin"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
+		["memmax"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
+		["memhigh"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}")	
 	if [[ $# -gt 0 ]]; 
 	then
+		declare -gA TOCKER_PARAMS;
 		while [ "${1:0:2}" == '--' ]; 
 		do 
-			OPTION=${1:2}; 
-			if [[ $OPTION =~ = ]] 
+			OPTION=${1:2} 
+
+			key=${OPTION%=*}
+			val=${OPTION#*=}
+			key=${key,,}
+
+			if [[ $key =~ (cpuquota|ioread|iowrite|memmin|memmax|memhigh) ]]
 			then
-				declare "TOCKER_${OPTION/=*/}=${OPTION/*=/}" || declare "TOCKER_${OPTION}=x"
+				[[ ${val,,} = ${key} ]] && shift && val=$1;
+
+				if [[ $val =~ ${VAL_VALIDATION["$key"]} ]];
+				then
+					TOCKER_PARAMS["$key"]="$val"
+				else
+					echo "value $val doesnt match option $key" tocker_help
+					return 1
+				fi
+
 				shift; 
+			else
+				echo "unknown option $OPTION please write all options consecutively"
+				tocker_help container
+				return 1
 			fi
 		done
+
 	fi
 }
 
@@ -76,7 +101,7 @@ parser () {
 tocker_help () {
 	# the help either takes container or image
 	# change to /opt/tocker/help
-	sed -n "/tocker $1/p" ./Makefile
+	sed -n "/tocker $1/p" /opt/tocker/help
 }
 
 container_parser () {
@@ -101,7 +126,8 @@ image_parser () {
 	esac	
 }
 
-parser container run
+parser container run --cpuquota 20 --ioread 50B
+parser container run --cpuquota=20 --ioread=50B
 parser image get
 parser container rm
 parser container exec
