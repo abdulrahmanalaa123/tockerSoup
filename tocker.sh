@@ -70,7 +70,6 @@ tocker_start () {
 }
 tocker_run () {
 	image=$1
-	entry=${2:="/bin/sh"}
        	# if input is part of a valid uuid
 	formatted_input=$(image_name_formatter $input)
 	declare path="$OUT_PATH/$formatted_input.tar.gz"
@@ -78,6 +77,9 @@ tocker_run () {
 	then
 	        tocker_pull $input
 	fi
+	# TODO 
+	# get it form the image meta file create an aextractor helper function
+	entry=${2:="/bin/sh"}
 	# id is present globally after creation
 	tocker_create $formatted_input
 	
