@@ -1,4 +1,6 @@
 #!/bin/bash
+# multiplying first by 100 and multiplying by the 0.001 to get hte float definition of the number
+		#size=$(printf '%.2f' $((10**2 * $(echo $info | cut -d'|' -f2) / 1048576))e-2)
 # man 5 systemd.resource-control
 # default CPUQuota=5% IOreadbandwith=20M/s by default B,K,M,G,T IOwritebandwith=  MemoryMin=1G(requested)B,K,M,G,T MemoryMax=2G(requested)B,K,M,G,T(absolute limit)  MemoryHigh2G(softcap)=B,K,M,G,T AllowedCPUs=1,2 (specify which cpus are specified)
 # either enable accounting on the userslice to enable quoting the services i presume 
@@ -68,11 +70,11 @@ container_stop () {
 }
 
 container_ls () {
-	echo lsing_cont
+	echo "contianer lsing"
 }
 
 image_get () {
-	echo getting
+	tocker_pull "$1"
 }
 
 image_rm () {
@@ -80,7 +82,43 @@ image_rm () {
 }
 
 image_ls () {
-	echo lsing_image
+
+	if [[ $@ =~ (-l) ]] || [[ $@ =~ long ]]
+	then
+		long=true
+		header="NAME\t\tTAG\t\tID\t\tCOMMAND\t\tENV_VARS\t\tDATE_CREATED\t\tSIZE\n"
+	else
+		long=false
+		header="NAME\t\tTAG\t\tID\t\tDATE_CREATED\t\tSIZE\n"
+	fi	
+	printf $header
+	for file in $OUT_PATH/*
+	do
+		info=$(stat --printf="%n|%s|%w\n" $file)
+		file_name=$(basename $(echo $info | cut -d'|' -f1))
+		file_name=${file_name%.tar.gz}
+		image_name=${file_name%%_*}	
+		image_tag=${file_name##*_}
+		# scale is the defining the scale of percision of the division operation before gviing the input to the basic calculator command
+		# keep in mind that the size is in MB
+		image_size_mb="$(echo "scale=2; $(echo $info | cut -d'|' -f2) / 1048576" | bc)MB"
+		date=$(echo $info | cut -d'|' -f3)		
+		# date day year hour and min
+		creation_date="${date::16}:00"
+		image_id=$(grep $image_name $IMAGE_META_PATH/.ids | cut -d'=' -f2)
+		if [[ long = true ]]
+		then
+			entry_command=$(grep ENTRYPOINT $IMAGE_META_PATH/$image_name.env | cut -d'=' -f2)	
+			env_vars=$(grep -v ENTRYPOINT $IMAGE_META_PATH/$image_name | cut -d'=' -f1)
+			# since paste takes in from a list of delimiters which means print at three env_vars per line max
+			env_vars=$(printf "$var" | paste -sd ',,\n')
+			printf "$image_name\t\t$image_tag\t\t$entry_command\t\t$env_vars\t\t$image_id\t\t$creation_date\t$image_size_mb\n"
+		else
+			#creation_date ofllowed by 1 tab only due to date length
+			printf "$image_name\t\t$image_tag\t\t${image_id::5}\t\t$creation_date\t$image_size_mb\n"
+		fi
+
+	done
 }
 
 parser () {
@@ -115,6 +153,12 @@ container_parser () {
 		run|"exec"|"stop"|start|"rm"|"ls")
 			container_"$1" "${@:2}"
 			;;
+		"ll")
+			container_ls long ${@:2}
+			;;
+		"la")
+			container_ls all ${@:2}
+			;;
 		*)
 			tocker_help container
 			;;
@@ -126,10 +170,14 @@ image_parser () {
 		get|"rm"|"ls")
 			image_"$1" "${@:2}"
 			;;
+		"ll")
+			image_ls long ${@:2}
+			;;
 		*)
 			tocker_help image
 			;;
 	esac	
 }
 
-parser container run --cpuquota 20 --ioread 50B alpine /bin/bash
+#parser container run --cpuquota 20 --ioread 50B alpine /bin/bash
+parser image ls

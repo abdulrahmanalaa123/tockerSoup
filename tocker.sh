@@ -28,7 +28,8 @@ tocker_pull() {
 
 		entry_point=$(docker inspect --type=image --format='{{json .Config.Entrypoint}} {{json .Config.Cmd}}' $image)
 		#removing nulls and quotations
- 		entry_point=${entry_point//[\"\[\]]/}
+ 		#entry_point=${entry_point//[\"\[\]]/}
+ 		entry_point=${entry_point//^\"[\[\]]\"$/}
 		entry_point=${entry_point//null/}
 		# get all the environmental variables of the image
 		environment_vars=$(docker inspect --type=image --format='{{json .Config.Env}}' $image)
@@ -68,7 +69,8 @@ tocker_run () {
 	echo "$path"
 	[[ -e $path ]] || tocker_pull $image
 
-	entry=${2:=$(grep "ENTRYPOINT" $IMAGE_META_PATH/$formatted_input.env | cut -d'=' -f2)}
+	# assigning defualt with :- instead of := for positional parameters
+	entry=${2:-$(grep "ENTRYPOINT" $IMAGE_META_PATH/$formatted_input.env | cut -d'=' -f2)}
 	# id is present globally after creation
 	tocker_create $formatted_input $entry
 	
