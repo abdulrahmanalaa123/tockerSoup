@@ -82,7 +82,6 @@ image_rm () {
 }
 
 image_ls () {
-
 	if [[ $@ =~ (-l) ]] || [[ $@ =~ long ]]
 	then
 		long=true
@@ -112,7 +111,7 @@ image_ls () {
 			env_vars=$(grep -v ENTRYPOINT $IMAGE_META_PATH/$image_name | cut -d'=' -f1)
 			# since paste takes in from a list of delimiters which means print at three env_vars per line max
 			env_vars=$(printf "$var" | paste -sd ',,\n')
-			printf "$image_name\t\t$image_tag\t\t$entry_command\t\t$env_vars\t\t$image_id\t\t$creation_date\t$image_size_mb\n"
+			printf "$image_name\t\t$image_tag\t\t$entry_command\t\t$image_id\t\t$creation_date\t$image_size_mb\t\t$env_vars\n"
 		else
 			#creation_date ofllowed by 1 tab only due to date length
 			printf "$image_name\t\t$image_tag\t\t${image_id::5}\t\t$creation_date\t$image_size_mb\n"

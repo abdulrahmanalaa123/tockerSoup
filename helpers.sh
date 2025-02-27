@@ -21,6 +21,7 @@ tocker_add_container () {
 	declare -A defaults=(["cpuquota"]="20" ["ioread"]="10M" ["iowrite"]="10M" ["memmin"]="1G" ["memmax"]="2G" ["memhigh"]="2G")
 	declare image=$1
 	declare entry=$2
+	# left without declare to be defined globally after creation
 	id=$(uuidgen)
 	for option in ${options[@]}
 	do

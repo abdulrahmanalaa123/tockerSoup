@@ -73,21 +73,16 @@ tocker_run () {
 	entry=${2:-$(grep "ENTRYPOINT" $IMAGE_META_PATH/$formatted_input.env | cut -d'=' -f2)}
 	# id is present globally after creation
 	tocker_create $formatted_input $entry
-	
+
+	#(cpuquota|ioread|iowrite|memmin|memmax|memhigh)
 	#TODO
-	# cgroups using systemd or the new way in general
-	# unsharing with the mount options 
-	# adding options in the command
 	# adding ps to list all running containers
 	# network namesapce
-	# default_cgroups defined in init
-	# process types isolation as well defined \
 	# forking the process would change how you would grep the process id
 	# using the -f command
-	# -rfpiu --mount-proc=$OUT_PATH/tocker_images/id/proc
-	# systemd run unit=$id chroot /$OUT_PATH/tocker_images/id command="/bin/sh -c "given command probably"" 
-	# 
-
+	# sudo unshare -rfpiu --mount-proc=$OUT_PATH/tocker_images/id/proc
+	# sudo systemd run unit=$id chroot /$OUT_PATH/tocker_images/id command="/bin/sh -c "$entry"
+	
 }
 
 tocker_create () {
