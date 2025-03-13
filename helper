@@ -1,0 +1,11 @@
+tocker container run  --cpuquota [0-100] --iowrite [num(B|K|M|G|T)] --ioread [num(B|K|M|G|T)] --memmax [num(B|K|M|G|T)] --memmin [num(B|K|M|G|T)] --memhigh [num(B|K|M|G|T)] <image_name> <command> # images are associate with an entryPoint can be done when pulling
+tocker container exec <container_id> <command>
+tocker container start <container_id>  keep running the image on the latest entrypoint
+tocker container rm -rf <container_id>  -r remove the container alongside its respective image -f removes the conatainer and stops it abruptly
+tocker image rm -f <image_name> 
+tocker container stop <container_id>
+tocker image get <image_name>
+tocker container (la|ls|l)
+tocker image (la|ls|l)
+
+

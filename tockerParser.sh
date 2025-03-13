@@ -15,7 +15,9 @@ container_run () {
 		["iowrite"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
 		["memmin"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
 		["memmax"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
-		["memhigh"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}")	
+		["memhigh"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
+		["network"]="(bridge|host|none){1}")	
+
 	if [[ $# -gt 0 ]]; 
 	then
 		declare -gA TOCKER_PARAMS;
@@ -27,7 +29,7 @@ container_run () {
 			val=${OPTION#*=}
 			key=${key,,}
 
-			if [[ $key =~ (cpuquota|ioread|iowrite|memmin|memmax|memhigh) ]]
+			if [[ $key =~ (cpuquota|ioread|iowrite|memmin|memmax|memhigh|network) ]]
 			then
 				[[ ${val,,} = ${key} ]] && shift && val=$1;
 
@@ -46,10 +48,10 @@ container_run () {
 				return 1
 			fi
 		done
-		image=$1
-		entry=$2
+		declare image=$1
+		declare entry=$2
 		
-		tocker_run "$1" "$2"
+		tocker_run "$image" "$entry"
 	fi
 }
 
@@ -144,7 +146,7 @@ parser () {
 tocker_help () {
 	# the help either takes container or image
 	# change to /opt/tocker/help
-	sed -n "/tocker $1/p" /opt/tocker/help
+	sed -n "/tocker $1/p" /opt/tocker/helper
 }
 
 container_parser () {
@@ -179,4 +181,5 @@ image_parser () {
 }
 
 #parser container run --cpuquota 20 --ioread 50B alpine /bin/bash
+parser container run --network bridge --ioread 50B alpine /bin/bash
 parser image ls

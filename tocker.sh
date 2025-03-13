@@ -69,20 +69,111 @@ tocker_run () {
 	echo "$path"
 	[[ -e $path ]] || tocker_pull $image
 
+	# defaults are added inside tocker_create all but the entry_point
+	# no need to assign defaults
 	# assigning defualt with :- instead of := for positional parameters
 	entry=${2:-$(grep "ENTRYPOINT" $IMAGE_META_PATH/$formatted_input.env | cut -d'=' -f2)}
 	# id is present globally after creation
 	tocker_create $formatted_input $entry
 
-	#(cpuquota|ioread|iowrite|memmin|memmax|memhigh)
+
+	if [[ -e $output_dir ]]
+	then
+		# creating a randomized sudo ip suffix and mac address
+		ip="${id: -3}"
+		# extracting the digits only
+		ip="${ip//[^0-9]/}"
+		# setting the default suffix with 2 in case the last 3 hexa not containing any numbers
+		ip="${ip:-2}"
+		ip="$((ip % 255))"
+		mac="${id: -3:1}:${id: -2}"
+		uuid="${id::5}"
+
+		# creating the container's network namespace
+		sudo ip netns add netns_"$uuid"
+		# network components to delete on container deletion
+		# veth0_"$uuid" and the namespace netns_"$uuid" and veth1 is just deleted by simply existing inside the container
+		# veth_0 is the ehternet interafce on the host and veth_1 is the ethernet 
+		# interafce inside the container
+		sudo ip link add veth0_"$uuid" type veth peer name veth1_"$uuid" 
+		sudo ip link set veth1_"$uuid" netns netns_"$uuid"
+		# setting the loopback address as up inside the network namepsace
+		sudo ip netns exec netns_"$uuid" ip link set dev lo up
+		# setting the mac address of the virtual ethernet interface
+		sudo ip netns exec netns_"$uuid" ip link set veth1_"$uuid" address 02:42:ac:11:00"$mac"
+		# adding the sudo ip address of the veth0 
+		sudo ip netns exec netns_"$uuid" ip addr add 10.0.3."$ip"/24 dev veth1_"$uuid" 
+		# set the veth0 interafce as up 
+		sudo ip link set dev veth0_"$uuid" up
+		# setting the state of the veth1 to up
+		sudo ip netns exec netns_"$uuid" ip link set veth1_"$uuid" up
+		# making veth0 the default gateway
+		sudo ip netns exec netns_"$uuid" ip route add default via 10.0.3.1
+		# finally enabling the veth1 interface
+		network_type=${TOCKER_PARAMS["network"]}
+		# getting the current main interface and the current dns server
+		get_network
+		bridge_name=$(grep 'bridge' "$NETWORK_CONFIG" | cut -d':' -f2)
+
+		mkdir -p /etc/netns/netns_"$uuid"
+
+		echo nameserver $current_dns | tee /etc/netns/netns_"$uuid"/resolv.conf
+		echo "ipv4=10.0.3.$ip" >> $CONT_META_PATH/$id
+		echo "gateway=10.0.3.1" >> $CONT_META_PATH/$id
+		echo "network_id=$uuid" >> $CONT_META_PATH/$id
+
+		echo "#!/bin/bash" >> $CONT_META_PATH/"$id"_cleanup.sh
+		echo "sudo rm -rf /etc/netns/netns_"$uuid"" >> $CONT_META_PATH/"$id"_cleanup.sh
+		case $network_type in
+			bridge)
+				sudo ip link set veth0_"$uuid" master "$bridge_name"
+				echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
+				;;
+			host)
+				# in case of host its the veth0 but if its a bridge type 
+				# the gateway is asisgned the ip of the bridge 
+				sudo ip addr add 10.0.3.1/24 dev veth0_"$uuid"
+				# create a routing rule to forward packets from the source of 
+				sudo iptables -A FORWARD -o $main_link -i veth0_"$uuid" -j ACCEPT
+				
+				echo "sudo iptables -D FORWARD -o $main_link -i veth0_$uuid -j ACCEPT				" >> $CONT_META_PATH/"$id"_cleanup.sh
+
+				sudo iptables -A FORWARD -i $main_link -o veth0_"$uuid" -j ACCEPT
+
+	echo "sudo iptables -D FORWARD -o $main_link -i veth0_$uuid -j ACCEPT" >> $CONT_META_PATH/"$id"_cleanup.sh
+
+				# mask the packets coming out of the veth1_ to be sourced from the main_link
+				# to enable internet access to the container
+				sudo iptables -t nat -A POSTROUTING -s 10.0.3."$ip"/24 -o $main_link -j MASQUERADE
+
+				echo "sudo iptables -t nat -D POSTROUTING -s 10.0.3."$ip"/24 -o $main_link -j MASQUERADE" >> $CONT_META_PATH/"$id"_cleanup.sh
+
+				echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
+
+				;;
+			*)
+				;;
+		esac
+
+		echo "sudo ip link delete dev veth0_"$uuid"" >> $CONT_META_PATH/"$id"_cleanup.sh
+		echo "sudo ip netns delete netns_"$uuid"" >> $CONT_META_PATH/"$id"_cleanup.sh
+		echo "echo 0 | sudo tee /proc/sys/net/ipv4/ip_forward" >> $CONT_META_PATH/"$id"_cleanup.sh
+		echo "all created"
+	else
+		echo "creating container from $image failed exit status 1"
+		return 1
+	fi
+
+
+	#${TOCKER_PARAMS["parameter"]}
+	#(cpuquota|ioread|iowrite|memmin|memmax|memhigh|network)
 	#TODO
 	# adding ps to list all running containers
-	# network namesapce
 	# forking the process would change how you would grep the process id
 	# using the -f command
 	# sudo unshare -rfpiu --mount-proc=$OUT_PATH/tocker_images/id/proc
 	# sudo systemd run unit=$id chroot /$OUT_PATH/tocker_images/id command="/bin/sh -c "$entry"
-	
+
 }
 
 tocker_create () {
@@ -90,16 +181,18 @@ tocker_create () {
 	declare entry=$2
 	tocker_add_container $image $entry
 	# declaring directory by added directory id each unique id specifying unique meta such as creation date last used, etc.
-	declare output_dir="$CONT_PATH/$id"
+	output_dir="$CONT_PATH/$id"
 	declare path="$OUT_PATH/$image.tar.gz"
 	mkdir $output_dir
 	tar -mxf $path --directory="$output_dir" --no-same-owner --no-same-permissions || (rmdir $output_dir && tocker_remove_container $id)
+	# adding the cleanup line to the meta file
+	echo "rm -rf $output_dir" >> $CONT_META_PATH/"$id"_cleanup.sh
 }
 
 get_container_procid () {
 	declare container_id=$1
 	# container image ids are on the 11th fragment so to print running containers
-       	# just do so and to get all with status running would b
+	# just do so and to get all with status running would b
 	# bit more complicated
 	# ps aux jsut prints the whole thing including the full command using u
 	proc_id=$(ps aux | grep unshare | grep -v grep | awk '{if($8 == "S") print $0}' | grep $container_id | awk '{print $2}')
