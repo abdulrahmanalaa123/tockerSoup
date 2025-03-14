@@ -2,6 +2,7 @@
 
 BASE_DIR=/var/tocker
 OUT_PATH=$BASE_DIR/tocker_images
+CONTAINER_OUT_PATH=$BASE_DIR/tocker_containers
 IMAGE_META_PATH=$BASE_DIR/tocker_meta/images
 CONT_META_PATH=$BASE_DIR/tocker_meta/containers
 CONT_PATH=$BASE_DIR/tocker_containers

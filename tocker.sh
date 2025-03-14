@@ -7,9 +7,6 @@ set -o errexit -o pipefail; shopt -s nullglob
 #set -o nounset -o pipefail; shopt -s nullglob
 . ./helpers.sh
 
-# first i was treating images as they are the containers and creating a unique image for each container and seems like a waster
-# so i will do the container runtime is extracting the container into a tempfs using the uuid and deleting it using it as well and
-# the original image stays the same and keeping the tar file permenantly in tocker_images
 tocker_pull() {
 	declare image=$1
 	#modification because it messes with tar and calls a repo for some reason
@@ -62,6 +59,13 @@ tocker_start () {
 	fi
 }
 
+# TODO
+# systemd run with the parsed options
+# alongside unshare with the proper namespaces and checking the service file
+# removing by the container_name or the id and completing the id
+# to start the container you can start by doing x 
+# to execute a command inside the shell idk hwo to do so yet but with systemd probably its easy to get the process id's namespace_name and exec the command inside
+# list the containers with its names and proper cleanup for the image
 tocker_run () {
 	declare image=$1
 	formatted_input=$(image_name_formatter $image)
@@ -79,22 +83,23 @@ tocker_run () {
 
 	if [[ -e $output_dir ]]
 	then
-		# creating a randomized sudo ip suffix and mac address
+		# creating a randomized ip suffix 
 		ip="${id: -3}"
 		# extracting the digits only
 		ip="${ip//[^0-9]/}"
 		# setting the default suffix with 2 in case the last 3 hexa not containing any numbers
 		ip="${ip:-2}"
+		# taking the remainder of 255 in case of zero to set the default as 2 always
 		ip="$((ip % 255))"
+		# defaulting to 2 in case of 1 0 255 
+		[[ $ip -le 1 ]] && ip="2"
+		# mac address
 		mac="${id: -3:1}:${id: -2}"
 		uuid="${id::5}"
 
 		# creating the container's network namespace
 		sudo ip netns add netns_"$uuid"
-		# network components to delete on container deletion
-		# veth0_"$uuid" and the namespace netns_"$uuid" and veth1 is just deleted by simply existing inside the container
-		# veth_0 is the ehternet interafce on the host and veth_1 is the ethernet 
-		# interafce inside the container
+		# veth_0 is the ehternet interafce on the host and veth_1 is the ethernet interafce inside the container
 		sudo ip link add veth0_"$uuid" type veth peer name veth1_"$uuid" 
 		sudo ip link set veth1_"$uuid" netns netns_"$uuid"
 		# setting the loopback address as up inside the network namepsace
@@ -113,17 +118,18 @@ tocker_run () {
 		network_type=${TOCKER_PARAMS["network"]}
 		# getting the current main interface and the current dns server
 		get_network
+
 		bridge_name=$(grep 'bridge' "$NETWORK_CONFIG" | cut -d':' -f2)
 
 		mkdir -p /etc/netns/netns_"$uuid"
 
+		# adding the current dns resolver as the default for the created network namespace
 		echo nameserver $current_dns | tee /etc/netns/netns_"$uuid"/resolv.conf
 		echo "ipv4=10.0.3.$ip" >> $CONT_META_PATH/$id
 		echo "gateway=10.0.3.1" >> $CONT_META_PATH/$id
 		echo "network_id=$uuid" >> $CONT_META_PATH/$id
 
-		echo "#!/bin/bash" >> $CONT_META_PATH/"$id"_cleanup.sh
-		echo "sudo rm -rf /etc/netns/netns_"$uuid"" >> $CONT_META_PATH/"$id"_cleanup.sh
+		echo "sudo rm -rf /etc/netns/netns_"$uuid"" >> $CLEANUP
 		case $network_type in
 			bridge)
 				sudo ip link set veth0_"$uuid" master "$bridge_name"
@@ -132,21 +138,22 @@ tocker_run () {
 			host)
 				# in case of host its the veth0 but if its a bridge type 
 				# the gateway is asisgned the ip of the bridge 
+				# would introduce errors when running several containers on the same gateway ip
 				sudo ip addr add 10.0.3.1/24 dev veth0_"$uuid"
 				# create a routing rule to forward packets from the source of 
 				sudo iptables -A FORWARD -o $main_link -i veth0_"$uuid" -j ACCEPT
-				
-				echo "sudo iptables -D FORWARD -o $main_link -i veth0_$uuid -j ACCEPT				" >> $CONT_META_PATH/"$id"_cleanup.sh
+
+				echo "sudo iptables -D FORWARD -o $main_link -i veth0_$uuid -j ACCEPT" >> $CLEANUP
 
 				sudo iptables -A FORWARD -i $main_link -o veth0_"$uuid" -j ACCEPT
 
-	echo "sudo iptables -D FORWARD -o $main_link -i veth0_$uuid -j ACCEPT" >> $CONT_META_PATH/"$id"_cleanup.sh
+				echo "sudo iptables -D FORWARD -o $main_link -i veth0_$uuid -j ACCEPT" >> $CLEANUP
 
-				# mask the packets coming out of the veth1_ to be sourced from the main_link
+				# mask the packets coming out of the veth1_ to be sourced from the main_link coming from the get_network function
 				# to enable internet access to the container
 				sudo iptables -t nat -A POSTROUTING -s 10.0.3."$ip"/24 -o $main_link -j MASQUERADE
 
-				echo "sudo iptables -t nat -D POSTROUTING -s 10.0.3."$ip"/24 -o $main_link -j MASQUERADE" >> $CONT_META_PATH/"$id"_cleanup.sh
+				echo "sudo iptables -t nat -D POSTROUTING -s 10.0.3."$ip"/24 -o $main_link -j MASQUERADE" >> $CLEANUP
 
 				echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
 
@@ -155,9 +162,15 @@ tocker_run () {
 				;;
 		esac
 
-		echo "sudo ip link delete dev veth0_"$uuid"" >> $CONT_META_PATH/"$id"_cleanup.sh
-		echo "sudo ip netns delete netns_"$uuid"" >> $CONT_META_PATH/"$id"_cleanup.sh
-		echo "echo 0 | sudo tee /proc/sys/net/ipv4/ip_forward" >> $CONT_META_PATH/"$id"_cleanup.sh
+		echo "sudo ip link delete dev veth0_"$uuid"" >> $CLEANUP
+		echo "sudo ip netns delete netns_"$uuid"" >> $CLEANUP
+		echo "echo 0 | sudo tee /proc/sys/net/ipv4/ip_forward" >> $CLEANUP
+		echo "your entry is $entry"
+		echo "sudo systemd run --CPUQuota=${TOCKER_PARAMS["cpuquota"]} --MemoryMax=${TOCKER_PARAMS["memmax"]} --MemoryMin=${TOCKER_PARAMS["memmin"]} --MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
+			--IOReadBandwidthMax=${TOCKER_PARAMS["ioread"]} --IOWriteBandwithMax=${TOCKER_PARAMS["iowrite"]}\
+			--unit="tocker_$id" --slice=tocker.slice ip netns exec netns_"$uuid" \
+				unshare -fmuip --mount-proc="$CONTAINER_OUT_PATH/$id/proc" \
+				chroot "$CONTAINER_OUT_PATH/$id" "$entry""
 		echo "all created"
 	else
 		echo "creating container from $image failed exit status 1"
@@ -180,13 +193,15 @@ tocker_create () {
 	declare image=$1
 	declare entry=$2
 	tocker_add_container $image $entry
+	CLEANUP="$CONT_META_PATH/"$id"_cleanup.sh"
 	# declaring directory by added directory id each unique id specifying unique meta such as creation date last used, etc.
 	output_dir="$CONT_PATH/$id"
 	declare path="$OUT_PATH/$image.tar.gz"
 	mkdir $output_dir
 	tar -mxf $path --directory="$output_dir" --no-same-owner --no-same-permissions || (rmdir $output_dir && tocker_remove_container $id)
 	# adding the cleanup line to the meta file
-	echo "rm -rf $output_dir" >> $CONT_META_PATH/"$id"_cleanup.sh
+	echo "#!/bin/bash" >> $CLEANUP
+	echo "rm -rf $output_dir" >> $CLEANUP
 }
 
 get_container_procid () {

@@ -1,0 +1,15 @@
+[Unit]
+Description=Tocker Slice
+Documentation=man:systemd.special(7)
+DefaultDependencies=no
+Before=slices.target
+Requires=system.slice
+After=system.slice
+
+[Slice]
+CPUAccounting=yes
+BlockIOAccounting=yes
+MemoryAccounting=yes
+TasksAccounting=yes
+CPUQuota=5%
+

@@ -29,7 +29,7 @@ container_run () {
 			val=${OPTION#*=}
 			key=${key,,}
 
-			if [[ $key =~ (cpuquota|ioread|iowrite|memmin|memmax|memhigh|network) ]]
+			if [[ $key =~ (cpuquota|name|ioread|iowrite|memmin|memmax|memhigh|network) ]]
 			then
 				[[ ${val,,} = ${key} ]] && shift && val=$1;
 
@@ -54,6 +54,14 @@ container_run () {
 		tocker_run "$image" "$entry"
 	fi
 }
+
+#TODO
+# container exec using systemd process id and exec
+# container start with systemd start
+# container delete with id or name
+# container stop with id or name extraction function
+# container ls 
+# image remove by name or id removing all envs and id from the 
 
 container_exec () {
 	echo execing
@@ -181,5 +189,5 @@ image_parser () {
 }
 
 #parser container run --cpuquota 20 --ioread 50B alpine /bin/bash
-parser container run --network bridge --ioread 50B alpine /bin/bash
+parser container run --network bridge --ioread 50B --name test_container alpine 
 parser image ls
