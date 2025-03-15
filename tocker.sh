@@ -25,8 +25,8 @@ tocker_pull() {
 
 		entry_point=$(docker inspect --type=image --format='{{json .Config.Entrypoint}} {{json .Config.Cmd}}' $image)
 		#removing nulls and quotations
- 		#entry_point=${entry_point//[\"\[\]]/}
- 		entry_point=${entry_point//^\"[\[\]]\"$/}
+ 		entry_point=${entry_point//[\"\[\]]/}
+		entry_point=${entry_point//,/ }
 		entry_point=${entry_point//null/}
 		# get all the environmental variables of the image
 		environment_vars=$(docker inspect --type=image --format='{{json .Config.Env}}' $image)
@@ -60,12 +60,13 @@ tocker_start () {
 }
 
 # TODO
-# systemd run with the parsed options
-# alongside unshare with the proper namespaces and checking the service file
+# presisting the service by creating a service template file  
+# stopping the service deletes it we need to persist
 # removing by the container_name or the id and completing the id
 # to start the container you can start by doing x 
 # to execute a command inside the shell idk hwo to do so yet but with systemd probably its easy to get the process id's namespace_name and exec the command inside
 # list the containers with its names and proper cleanup for the image
+# container rm with cleanup container inspect 
 tocker_run () {
 	declare image=$1
 	formatted_input=$(image_name_formatter $image)
@@ -78,8 +79,8 @@ tocker_run () {
 	# assigning defualt with :- instead of := for positional parameters
 	entry=${2:-$(grep "ENTRYPOINT" $IMAGE_META_PATH/$formatted_input.env | cut -d'=' -f2)}
 	# id is present globally after creation
-	tocker_create $formatted_input $entry
 
+	tocker_create $formatted_input $entry
 
 	if [[ -e $output_dir ]]
 	then
@@ -128,12 +129,11 @@ tocker_run () {
 		echo "ipv4=10.0.3.$ip" >> $CONT_META_PATH/$id
 		echo "gateway=10.0.3.1" >> $CONT_META_PATH/$id
 		echo "network_id=$uuid" >> $CONT_META_PATH/$id
-
+		echo "mac_address=$mac"
 		echo "sudo rm -rf /etc/netns/netns_"$uuid"" >> $CLEANUP
 		case $network_type in
 			bridge)
 				sudo ip link set veth0_"$uuid" master "$bridge_name"
-				echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
 				;;
 			host)
 				# in case of host its the veth0 but if its a bridge type 
@@ -155,7 +155,6 @@ tocker_run () {
 
 				echo "sudo iptables -t nat -D POSTROUTING -s 10.0.3."$ip"/24 -o $main_link -j MASQUERADE" >> $CLEANUP
 
-				echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
 
 				;;
 			*)
@@ -164,28 +163,16 @@ tocker_run () {
 
 		echo "sudo ip link delete dev veth0_"$uuid"" >> $CLEANUP
 		echo "sudo ip netns delete netns_"$uuid"" >> $CLEANUP
-		echo "echo 0 | sudo tee /proc/sys/net/ipv4/ip_forward" >> $CLEANUP
-		echo "your entry is $entry"
-		echo "sudo systemd run --CPUQuota=${TOCKER_PARAMS["cpuquota"]} --MemoryMax=${TOCKER_PARAMS["memmax"]} --MemoryMin=${TOCKER_PARAMS["memmin"]} --MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
-			--IOReadBandwidthMax=${TOCKER_PARAMS["ioread"]} --IOWriteBandwithMax=${TOCKER_PARAMS["iowrite"]}\
-			--unit="tocker_$id" --slice=tocker.slice ip netns exec netns_"$uuid" \
-				unshare -fmuip --mount-proc="$CONTAINER_OUT_PATH/$id/proc" \
-				chroot "$CONTAINER_OUT_PATH/$id" "$entry""
-		echo "all created"
+
+		sudo systemd-run --scope -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
+			--unit="tocker_$uuid" --slice=tocker.slice  ip netns exec netns_"$uuid" \
+				unshare -fmuip --mount-proc \
+				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry"
 	else
 		echo "creating container from $image failed exit status 1"
 		return 1
 	fi
 
-
-	#${TOCKER_PARAMS["parameter"]}
-	#(cpuquota|ioread|iowrite|memmin|memmax|memhigh|network)
-	#TODO
-	# adding ps to list all running containers
-	# forking the process would change how you would grep the process id
-	# using the -f command
-	# sudo unshare -rfpiu --mount-proc=$OUT_PATH/tocker_images/id/proc
-	# sudo systemd run unit=$id chroot /$OUT_PATH/tocker_images/id command="/bin/sh -c "$entry"
 
 }
 

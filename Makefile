@@ -8,6 +8,7 @@ RULES := /etc/sudoers.d/tocker_rules
 OPT_DIR := /opt/tocker
 HELP := /opt/tocker/helper
 NETWORK := /var/opt/network_config
+SLICE := /etc/systemd/system/tocker.slice
 
 #https://stackoverflow.com/questions/649246/is-it-possible-to-create-a-multi-line-string-variable-in-a-makefile
 
@@ -24,8 +25,10 @@ $(META_PATH): $(CONT_PATH)
 	sudo mkdir $(META_PATH)/containers
 $(CONT_PATH) : $(OUT_PATH)
 	sudo mkdir $(CONT_PATH)
-$(OUT_PATH): $(RULES)
+$(OUT_PATH): $(SLICE)
 	sudo mkdir $(OUT_PATH)
+$(SLICE): $(RULES)
+	sudo cp tocker.slice $(SLICE)
 $(RULES): set_permissions 
 	sudo cp tocker_rules $(RULES)
 set_permissions: $(BASE_DIR) $(OPT_DIR) $(HELP) $(NETWORK)
@@ -53,4 +56,5 @@ clean:
 	sudo rm -rf $(BASE_DIR)
 	sudo rm -rf $(OPT_DIR)
 	sudo rm -f $(RULES)
+	sudo rm -f $(SLICE)
 

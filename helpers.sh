@@ -1,8 +1,6 @@
 #!/bin/bash
-
 BASE_DIR=/var/tocker
 OUT_PATH=$BASE_DIR/tocker_images
-CONTAINER_OUT_PATH=$BASE_DIR/tocker_containers
 IMAGE_META_PATH=$BASE_DIR/tocker_meta/images
 CONT_META_PATH=$BASE_DIR/tocker_meta/containers
 CONT_PATH=$BASE_DIR/tocker_containers
@@ -19,7 +17,7 @@ image_name_formatter () {
 
 tocker_add_container () {
 	declare -a options=(cpuquota ioread iowrite memmin memmax memhigh)
-	declare -A defaults=(["cpuquota"]="20" ["ioread"]="10M" ["iowrite"]="10M" ["memmin"]="1G" ["memmax"]="2G" ["memhigh"]="2G" ["network"]="bridge")
+	declare -A defaults=(["cpuquota"]="20" ["memmin"]="1G" ["memmax"]="2G" ["memhigh"]="2G" ["network"]="host")
 	declare image=$1
 	declare entry=$2
 	# left without declare to be defined globally after creation

@@ -2,6 +2,7 @@
 # multiplying first by 100 and multiplying by the 0.001 to get hte float definition of the number
 		#size=$(printf '%.2f' $((10**2 * $(echo $info | cut -d'|' -f2) / 1048576))e-2)
 # man 5 systemd.resource-control
+# IOREAD and IOWrite are removed becuase device needs to be specified and i dont want to go through that hassle
 # default CPUQuota=5% IOreadbandwith=20M/s by default B,K,M,G,T IOwritebandwith=  MemoryMin=1G(requested)B,K,M,G,T MemoryMax=2G(requested)B,K,M,G,T(absolute limit)  MemoryHigh2G(softcap)=B,K,M,G,T AllowedCPUs=1,2 (specify which cpus are specified)
 # either enable accounting on the userslice to enable quoting the services i presume 
 
@@ -9,10 +10,9 @@
 
 container_run () {
 	#cpuquota 0-100% including floats
-	# all the rest are digits including floats followed by B,K,M,G,T
+	#["ioread"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
+	#["iowrite"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
 	declare -A VAL_VALIDATION=(["cpuquota"]="0*([1-9][0-9]?|100){1}(.0*([1-9][0-9]?))?" \
-		["ioread"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
-		["iowrite"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
 		["memmin"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
 		["memmax"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
 		["memhigh"]="[0-9]+(.[0-9]+)?(B|K|M|G|T){1}" \
