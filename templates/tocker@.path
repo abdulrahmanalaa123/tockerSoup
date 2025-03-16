@@ -1,0 +1,4 @@
+[Path]
+PathExists=/run/systemd/transient/tocker_%i.service
+Unit=tocker_container_logger@%i.service
+

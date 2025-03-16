@@ -1,0 +1,3 @@
+[Path]
+PathChanged=/run/systemd/transient/tocker_%i.service
+Unit=tocker_container_logstopper@%i.service

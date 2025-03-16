@@ -60,13 +60,27 @@ tocker_start () {
 }
 
 # TODO
-# presisting the service by creating a service template file  
-# stopping the service deletes it we need to persist
-# removing by the container_name or the id and completing the id
-# to start the container you can start by doing x 
-# to execute a command inside the shell idk hwo to do so yet but with systemd probably its easy to get the process id's namespace_name and exec the command inside
-# list the containers with its names and proper cleanup for the image
+# internet isnt working inside the container
+
+# add the logging file to the container logger service template
+# logging files sequence is as follows first the path is created then the logger service and on finisihing the unshare process run the logger destroyer service which will stop the initital service and delete the path as well as it deltees its own path on exiting
+# environment variables get function
+# get name of container func from id
+# get full id of container if not whole
+# save systemd-run script into a startup container file 
+# get the running containers with systemctl list running services with tocker_ prefix and no need to keep the service after exiting or failiing
+# adding a log location in the makefile
+# getting the log starts a job which should be ran at the container start which is done using journalctl --follow -u tocker_uuid >> log_location/file_name &
+# and to kill the job just search teh jobs by using jobs "%uuid" and kill it on container stop or exit
+# the problem is it wont start logging programmatically unless it exists which defeats the purpose
+# we can create a template path file if possible which runs the command with teh container name if the path exists which is the path for the transient unit which is the given by the name as well
+# redirecting the logs to said file with container id
+# execute inside a command by getting its process_id from systemctl
+# container rm with removing startup_script and running network cleanup script and if running check its running first with -f option 
+# container inspect will simply list the container's environment variables and ip address and maybe the network namespace
+
 # container rm with cleanup container inspect 
+
 tocker_run () {
 	declare image=$1
 	formatted_input=$(image_name_formatter $image)
@@ -164,8 +178,8 @@ tocker_run () {
 		echo "sudo ip link delete dev veth0_"$uuid"" >> $CLEANUP
 		echo "sudo ip netns delete netns_"$uuid"" >> $CLEANUP
 
-		sudo systemd-run --scope -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
-			--unit="tocker_$uuid" --slice=tocker.slice  ip netns exec netns_"$uuid" \
+		sudo systemd-run --collect -t --send-sighup -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
+			--unit="tocker_$uuid" --slice=tocker.slice ip netns exec netns_"$uuid" \
 				unshare -fmuip --mount-proc \
 				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry"
 	else

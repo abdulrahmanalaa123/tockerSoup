@@ -1,0 +1,10 @@
+[Unit]
+Description=Matt Test
+BindsTo=tocker@%i.path
+CollectMode=inactive-or-failed
+
+[Service]
+ExecStart=/usr/bin/bash -c "/usr/bin/journalctl --follow -u tocker_%i.service >> /home/tomato/test.log"
+ExecStopPost=/usr/bin/bash -c "/usr/bin/systemctl stop tocker@%i.path"
+Type=simple
+
