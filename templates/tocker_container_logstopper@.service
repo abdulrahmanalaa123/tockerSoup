@@ -5,6 +5,6 @@ CollectMode=inactive-or-failed
 
 [Service]
 ExecStart=/usr/bin/[ ! -e /run/systemd/units/invocation\:tocker_%i.service ] && /usr/bin/systemctl stop tocker_container_logger@%i
-ExecStopPost=/usr/bin/rm /etc/systemd/system/tocker_change@%i.path
+ExecStop=/usr/bin/bash -c "/usr/bin/systemctl stop -f tocker_change@%i.path"
 Type=simple
 

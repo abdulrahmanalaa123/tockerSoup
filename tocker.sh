@@ -177,6 +177,9 @@ tocker_run () {
 
 		echo "sudo ip link delete dev veth0_"$uuid"" >> $CLEANUP
 		echo "sudo ip netns delete netns_"$uuid"" >> $CLEANUP
+		# running a log watcher when running the service and stopping it 
+		sudo systemctl start tocker@$uuid.path
+		sudo systemctl start tocker_change@$uuid.path
 
 		sudo systemd-run --collect -t --send-sighup -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
 			--unit="tocker_$uuid" --slice=tocker.slice ip netns exec netns_"$uuid" \
