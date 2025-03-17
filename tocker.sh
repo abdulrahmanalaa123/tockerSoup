@@ -177,14 +177,14 @@ tocker_run () {
 
 		echo "sudo ip link delete dev veth0_"$uuid"" >> $CLEANUP
 		echo "sudo ip netns delete netns_"$uuid"" >> $CLEANUP
-		# running a log watcher when running the service and stopping it 
-		sudo systemctl start tocker@$uuid.path
-		sudo systemctl start tocker_change@$uuid.path
 
-		sudo systemd-run --collect -t --send-sighup -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
+		# it runs the container_loggin service on start with the wants property
+		# -r remains after exit which is needd when trying to log the status of the container
+		sudo systemd-run -t --collect -p Wants=tocker_container_logger@$uuid.service -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
 			--unit="tocker_$uuid" --slice=tocker.slice ip netns exec netns_"$uuid" \
 				unshare -fmuip --mount-proc \
-				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry"
+				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry" 
+				
 	else
 		echo "creating container from $image failed exit status 1"
 		return 1

@@ -1,7 +1,0 @@
-[Path]
-PathChanged=/run/systemd/transient/tocker_%i.service
-Unit=tocker_container_logstopper@%i.service
-
-[Unit]
-Description=watching the transient service tocker_%i
-CollectMode=inactive-or-failed

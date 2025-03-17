@@ -1,10 +1,10 @@
 [Unit]
-Description=Matt Test
-BindsTo=tocker@%i.path
+Description=Tocker container %i logging service 
+BindsTo=tocker_%i.service
 CollectMode=inactive-or-failed
 
 [Service]
 ExecStart=/usr/bin/bash -c "/usr/bin/journalctl --follow -u tocker_%i.service >> /home/tomato/test.log"
-ExecStopPost=/usr/bin/bash -c "/usr/bin/systemctl stop -f tocker@%i.path"
+ExecStopPost=/usr/bin/bash -c "/usr/bin/journalctl -b -0 -n 1 -u tocker_%i.service >> /home/tomato/test.log"
 Type=simple
 

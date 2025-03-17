@@ -114,10 +114,8 @@ tocker_run () {
 		echo "sudo ip netns delete netns_"$uuid"" >> $CLEANUP
 		echo "your entry is $entry"
 
-		sudo systemctl start tocker@$uuid.path
-		sudo systemctl start tocker_change@$uuid.path
 		# -r remains after exit which is needd when trying to log the status of the container
-		sudo systemd-run -t --collect -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
+		sudo systemd-run -t --collect -p Wants=tocker_container_logger@$uuid.service -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
 			--unit="tocker_$uuid" --slice=tocker.slice ip netns exec netns_"$uuid" \
 				unshare -fmuip --mount-proc \
 				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry" 
