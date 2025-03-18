@@ -2,6 +2,7 @@ BASE_DIR := /var/tocker
 OUT_PATH := $(BASE_DIR)/tocker_images
 CONT_PATH := $(BASE_DIR)/tocker_containers
 META_PATH := $(BASE_DIR)/tocker_meta
+LOG_PATH := $(BASE_DIR)/container_logs
 CURRENT_USER := $(shell whoami)
 current_dir := $(shell pwd)
 RULES := /etc/sudoers.d/tocker_rules
@@ -9,6 +10,9 @@ OPT_DIR := /opt/tocker
 HELP := /opt/tocker/helper
 NETWORK := /var/opt/network_config
 SLICE := /etc/systemd/system/tocker.slice
+LOGGER_TEMPLATE := /etc/systemd/system/tocker_container_logger@.service
+
+
 
 #https://stackoverflow.com/questions/649246/is-it-possible-to-create-a-multi-line-string-variable-in-a-makefile
 
@@ -25,6 +29,10 @@ $(META_PATH): $(CONT_PATH)
 	sudo mkdir $(META_PATH)/containers
 $(CONT_PATH) : $(OUT_PATH)
 	sudo mkdir $(CONT_PATH)
+$(LOG_PATH): $(LOGGER_TEMPLATE)
+	sudo mkdir $(LOG_PATH)
+$(LOGGER_TEMPLATE): $(OUT_PATH)
+	sudo cp ./templates/tocker_container_logger@.service $(LOGGER_TEMPLATE)
 $(OUT_PATH): $(SLICE)
 	sudo mkdir $(OUT_PATH)
 $(SLICE): $(RULES)
@@ -57,4 +65,5 @@ clean:
 	sudo rm -rf $(OPT_DIR)
 	sudo rm -f $(RULES)
 	sudo rm -f $(SLICE)
+	sudo rm -f $(LOGGER_TEMPLATE)
 
