@@ -53,7 +53,6 @@ tocker_start () {
 	#Substring expanision	
 	declare input=${@: -1}
 	declare id=$(get_full_id $input)
-
 	if [[ -z $id ]]; then
 		echo  "contianer $id doesnt exist probably check youre containers using tocker container ls -a"
 	fi
@@ -62,24 +61,14 @@ tocker_start () {
 # TODO
 # internet isnt working inside the container
 
-# add the logging file to the container logger service template
-# logging files sequence is as follows first the path is created then the logger service and on finisihing the unshare process run the logger destroyer service which will stop the initital service and delete the path as well as it deltees its own path on exiting
 # environment variables get function
-# get name of container func from id
-# get full id of container if not whole
-# save systemd-run script into a startup container file 
 # get the running containers with systemctl list running services with tocker_ prefix and no need to keep the service after exiting or failiing
-# adding a log location in the makefile
-# getting the log starts a job which should be ran at the container start which is done using journalctl --follow -u tocker_uuid >> log_location/file_name &
 # and to kill the job just search teh jobs by using jobs "%uuid" and kill it on container stop or exit
-# the problem is it wont start logging programmatically unless it exists which defeats the purpose
-# we can create a template path file if possible which runs the command with teh container name if the path exists which is the path for the transient unit which is the given by the name as well
-# redirecting the logs to said file with container id
 # execute inside a command by getting its process_id from systemctl
 # container rm with removing startup_script and running network cleanup script and if running check its running first with -f option 
 # container inspect will simply list the container's environment variables and ip address and maybe the network namespace
 
-# container rm with cleanup container inspect 
+# container rm with cleanup , container inspect 
 
 tocker_run () {
 	declare image=$1
@@ -140,11 +129,13 @@ tocker_run () {
 
 		# adding the current dns resolver as the default for the created network namespace
 		echo nameserver $current_dns | tee /etc/netns/netns_"$uuid"/resolv.conf
-		echo "ipv4=10.0.3.$ip" >> $CONT_META_PATH/$id
-		echo "gateway=10.0.3.1" >> $CONT_META_PATH/$id
-		echo "network_id=$uuid" >> $CONT_META_PATH/$id
-		echo "mac_address=$mac"
+		declare meta_file="$CONT_META_PATH/$id.meta"
+		echo "ipv4=10.0.3.$ip"  >> $meta_file 
+		echo "gateway=10.0.3.1" >> $meta_file
+		echo "network_id=$uuid" >> $meta_file
+		echo "mac_address=$mac" >> $meta_file
 		echo "sudo rm -rf /etc/netns/netns_"$uuid"" >> $CLEANUP
+
 		case $network_type in
 			bridge)
 				sudo ip link set veth0_"$uuid" master "$bridge_name"
@@ -178,18 +169,31 @@ tocker_run () {
 		echo "sudo ip link delete dev veth0_"$uuid"" >> $CLEANUP
 		echo "sudo ip netns delete netns_"$uuid"" >> $CLEANUP
 
-		# it runs the container_loggin service on start with the wants property
+		if [[ $interactive = true ]]
+		then
+			
+			# it runs the container_logging service on start with the wants property
+			addon="-t -p Wants=tocker_container_logger@$id.service "
+		else
+			log_file=$LOG_PATH/$id.log
+			touch $log_file
+			# piping the output and errors to the logfile 
+			# should later add log cleanup service alongside the tocker_services
+			# but fuck it for now
+			addon="--pipe $log_file"
+		fi
+		tocker_add_startup 
 		# -r remains after exit which is needd when trying to log the status of the container
-		sudo systemd-run -t --collect -p Wants=tocker_container_logger@$uuid.service -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
-			--unit="tocker_$uuid" --slice=tocker.slice ip netns exec netns_"$uuid" \
+		sudo systemd-run $addon --collect -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
+			--unit="tocker_$id" --slice=tocker.slice ip netns exec netns_"$uuid" \
 				unshare -fmuip --mount-proc \
-				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry" 
-				
+				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry"
+		# if the latest process fails run the cleanup script and remove the container
+		#[[ $? -eq 1 ]] && 
 	else
 		echo "creating container from $image failed exit status 1"
 		return 1
 	fi
-
 
 }
 

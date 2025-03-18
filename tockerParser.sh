@@ -50,6 +50,10 @@ container_run () {
 		done
 		declare image=$1
 		declare entry=$2
+		if [[ $@ =~ (-it) ]] 
+		then
+			interactive=true
+		fi
 		
 		tocker_run "$image" "$entry"
 	fi
@@ -59,27 +63,32 @@ container_run () {
 # container exec using systemd process id and exec
 # container start with systemd start
 # container delete with id or name
-# container stop with id or name extraction function
+# container stop 
 # container ls 
 # image remove by name or id removing all envs and id from the 
 
 container_exec () {
-	echo execing
+	id=$(get_full_id $1)
+	echo execing $id
 }
 
 container_start () {
+	id=$(get_full_id $1)
 	echo starting
 }
 
 container_rm () {
+	id=$(get_full_id $1)
 	echo removing_cont
 }
 
 container_stop () {
+	id=$(get_full_id $1)
 	echo stopping
 }
 
 container_ls () {
+	
 	echo "contianer lsing"
 }
 
@@ -95,7 +104,7 @@ image_ls () {
 	if [[ $@ =~ (-l) ]] || [[ $@ =~ long ]]
 	then
 		long=true
-		header="NAME\t\tTAG\t\tID\t\tCOMMAND\t\tENV_VARS\t\tDATE_CREATED\t\tSIZE\n"
+		header="NAME\t\tTAG\t\tID\t\t\t\t\tCOMMAND\t\tENV_VARS\t\tDATE_CREATED\t\tSIZE\n"
 	else
 		long=false
 		header="NAME\t\tTAG\t\tID\t\tDATE_CREATED\t\tSIZE\n"
@@ -115,13 +124,13 @@ image_ls () {
 		# date day year hour and min
 		creation_date="${date::16}:00"
 		image_id=$(grep $image_name $IMAGE_META_PATH/.ids | cut -d'=' -f2)
-		if [[ long = true ]]
+		if [[ $long = true ]]
 		then
-			entry_command=$(grep ENTRYPOINT $IMAGE_META_PATH/$image_name.env | cut -d'=' -f2)	
-			env_vars=$(grep -v ENTRYPOINT $IMAGE_META_PATH/$image_name | cut -d'=' -f1)
+			entry_command=$(grep ENTRYPOINT $IMAGE_META_PATH/$file_name.env | cut -d'=' -f2)	
+			env_vars=$(grep -v ENTRYPOINT $IMAGE_META_PATH/$file_name.env | cut -d'=' -f1)
 			# since paste takes in from a list of delimiters which means print at three env_vars per line max
-			env_vars=$(printf "$var" | paste -sd ',,\n')
-			printf "$image_name\t\t$image_tag\t\t$entry_command\t\t$image_id\t\t$creation_date\t$image_size_mb\t\t$env_vars\n"
+			env_vars=$(printf "$env_vars" | paste -sd ',,\n')
+			printf "$image_name\t\t$image_tag\t\t$image_id\t$entry_command\t$env_vars\t\t\t$creation_date\t$image_size_mb\n"
 		else
 			#creation_date ofllowed by 1 tab only due to date length
 			printf "$image_name\t\t$image_tag\t\t${image_id::5}\t\t$creation_date\t$image_size_mb\n"
@@ -189,5 +198,5 @@ image_parser () {
 }
 
 #parser container run --cpuquota 20 --ioread 50B alpine /bin/bash
-parser container run --network bridge --ioread 50B --name test_container alpine 
-parser image ls
+#parser container run --network bridge --ioread 50B --name test_container alpine 
+parser image ll
