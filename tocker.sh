@@ -61,15 +61,6 @@ tocker_start () {
 # TODO
 # internet isnt working inside the container
 
-# environment variables get function
-# get the running containers with systemctl list running services with tocker_ prefix and no need to keep the service after exiting or failiing
-# and to kill the job just search teh jobs by using jobs "%uuid" and kill it on container stop or exit
-# execute inside a command by getting its process_id from systemctl
-# container rm with removing startup_script and running network cleanup script and if running check its running first with -f option 
-# container inspect will simply list the container's environment variables and ip address and maybe the network namespace
-
-# container rm with cleanup , container inspect 
-
 tocker_run () {
 	declare image=$1
 	formatted_input=$(image_name_formatter $image)
@@ -133,7 +124,7 @@ tocker_run () {
 		echo "ipv4=10.0.3.$ip"  >> $meta_file 
 		echo "gateway=10.0.3.1" >> $meta_file
 		echo "network_id=$uuid" >> $meta_file
-		echo "mac_address=$mac" >> $meta_file
+		echo "mac_address=02:42:ac:11:00$mac" >> $meta_file
 		echo "sudo rm -rf /etc/netns/netns_"$uuid"" >> $CLEANUP
 
 		case $network_type in
@@ -184,7 +175,7 @@ tocker_run () {
 		fi
 		tocker_add_startup 
 		# -r remains after exit which is needd when trying to log the status of the container
-		sudo systemd-run $addon --collect -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
+		sudo systemd-run $addon --collect -p CPUQuota="${TOCKER_PARAMS["cpuquota"]}%" -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
 			--unit="tocker_$id" --slice=tocker.slice ip netns exec netns_"$uuid" \
 				unshare -fmuip --mount-proc \
 				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry"
@@ -210,22 +201,5 @@ tocker_create () {
 	# adding the cleanup line to the meta file
 	echo "#!/bin/bash" >> $CLEANUP
 	echo "rm -rf $output_dir" >> $CLEANUP
-}
-
-get_container_procid () {
-	declare container_id=$1
-	# container image ids are on the 11th fragment so to print running containers
-	# just do so and to get all with status running would b
-	# bit more complicated
-	# ps aux jsut prints the whole thing including the full command using u
-	proc_id=$(ps aux | grep unshare | grep -v grep | awk '{if($8 == "S") print $0}' | grep $container_id | awk '{print $2}')
-}
-
-tocker_ps () {
-	# may be improved for listing containers besides their ids
-	# could be done by change the internal file separator and reading them line by line and printing idk how to do it exactly
-	# a problem for later first the namespaces
-	declare out=$( grep -oP ".+?(?==)" $BASE_DIR/.ids)
-	echo -e ${out/$'\n'/$'\t'}
 }
 

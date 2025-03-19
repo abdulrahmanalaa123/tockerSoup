@@ -24,6 +24,7 @@ tocker_add_container () {
 	# left without declare to be defined globally after creation
 	id=$(uuidgen)
 	declare meta_file=$CONT_META_PATH/$id.meta
+	[[ -n ${TOCKER_PARAMS["name"]} ]] && [[ -z $(get_full_id ${TOCKER_PARAMS["name"]}) ]] && echo "name=${TOCKER_PARAMS["name"]}" >> $meta_file || echo "a container with the name ${TOCKER_PARAMS["name"]} already exists" && return 1
 	for option in ${options[@]}
 	do
 		if [[ -n ${TOCKER_PARAMS["$option"]} ]]
@@ -36,7 +37,6 @@ tocker_add_container () {
 		fi
 	done
 	echo "image=$image" >> $meta_file
-	[[ -n ${TOCKER_PARAMS["name"]} ]] && echo "name=${TOCKER_PARAMS["name"]}" >> $meta_file
 	# not adding environmental variables becuase when exporting the container they are initalized inside the tar file
 	echo "ENTRYPOINT=$entry" >> $meta_file
 }
@@ -72,13 +72,14 @@ tocker_remove_image () {
 tocker_add_startup (){
 	cat << EOF > "$CONT_META_PATH/"$id"_startup.sh"
 #!/bin/bash
-sudo systemd-run $addon --collect -p CPUQuota=${TOCKER_PARAMS["cpuquota"]} -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
+sudo systemd-run $addon --collect -p CPUQuota="${TOCKER_PARAMS["cpuquota"]}%" -p MemoryMax=${TOCKER_PARAMS["memmax"]} -p MemoryMin=${TOCKER_PARAMS["memmin"]} -p MemoryHigh=${TOCKER_PARAMS["memhigh"]} \
 			--unit="tocker_$id" --slice=tocker.slice ip netns exec netns_"$uuid" \
 				unshare -fmuip --mount-proc \
 				chroot "$output_dir" /bin/sh -c "/bin/mount -t proc proc /proc && $entry"
 EOF
 }
 
+# enables you to get the id with the name and id
 get_full_id () {
 	declare input=$1
 	declare presume_id=$(ls $CONT_PATH | grep -o "$1")
@@ -92,3 +93,60 @@ get_full_id () {
 	fi
 }
 
+get_pid () {
+	declare id=$1
+	declare pid=$(systemctl show --property MainPID --value tocker_$id.service)
+	echo $pid
+}
+
+get_running () {
+	# running containers array
+	declare -ga running=$(ls /sys/fs/cgroup/tocker.slice | grep tocker)
+}
+
+get_status () {
+	declare id=$1
+	# if the running array contains the id
+	if [[ $running =~ "$1" ]]
+	then
+		echo "RUNNING"
+	else
+		fail_status=$(grep -Eo "code=.*status=.*" $LOG_PATH/$id.log | tail -n 1)
+		date=$(grep -E "code=.*status=.*" $LOG_PATH/$id.log | tail -n 1 | cut -d' ' -f1-3)
+		[ -n "$fail_status" ] && echo "$(date_difference "$date") $fail_status"
+		normal=$(grep "Deactivated" $LOG_PATH/$id.log | tail -n 1)
+		date=$(grep "Deactivated" $LOG_PATH/$id.log | tail -n 1 | cut -d' ' -f1-3)
+		[ -n "$normal" ] && echo "$(date_difference "$date") exited"
+	fi
+}
+
+
+date_difference () {
+	# Given date
+	given_date=$1
+	current_date=$(date +"%Y-%m-%d %H:%M:%S")
+	# get the current timestamp in seconds
+	given_timestamp=$(date -d "$given_date" +%s)
+	current_timestamp=$(date +%s)
+
+	# Calculate the difference in seconds
+	diff_seconds=$((current_timestamp - given_timestamp))
+
+	# Check the difference and display the appropriate unit
+	if [ $diff_seconds -lt 60 ]; then
+	  # Difference in seconds
+	  echo "($diff_seconds seconds ago)"
+	elif [ $diff_seconds -lt 3600 ]; then
+	  # Difference in minutes
+	  diff_minutes=$((diff_seconds / 60))
+	  echo "($diff_minutes minutes ago)"
+	elif [ $diff_seconds -lt 86400 ]; then
+	  # Difference in hours
+	  diff_hours=$((diff_seconds / 3600))
+	  echo "($diff_hours hours ago)"
+	else
+	  # Difference in days
+	  diff_days=$((diff_seconds / 86400))
+	  echo "($diff_days days ago)"
+	fi
+}

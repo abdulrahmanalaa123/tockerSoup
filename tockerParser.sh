@@ -20,6 +20,13 @@ container_run () {
 
 	if [[ $# -gt 0 ]]; 
 	then
+		
+		if [[ $1 =~ (-it) ]] 
+		then
+			interactive=true
+			shift
+		fi
+	
 		declare -gA TOCKER_PARAMS;
 		while [ "${1:0:2}" == '--' ]; 
 		do 
@@ -50,11 +57,7 @@ container_run () {
 		done
 		declare image=$1
 		declare entry=$2
-		if [[ $@ =~ (-it) ]] 
-		then
-			interactive=true
-		fi
-		
+	
 		tocker_run "$image" "$entry"
 	fi
 }
@@ -69,6 +72,7 @@ container_run () {
 
 container_exec () {
 	id=$(get_full_id $1)
+
 	echo execing $id
 }
 
@@ -84,13 +88,58 @@ container_rm () {
 
 container_stop () {
 	id=$(get_full_id $1)
-	echo stopping
+	[[ -z $id ]] && echo "container $1 doesnt exist please check writing the the proper name " && return 1
+
+	declare status=$(get_status $id)
+	if [[ $status = "RUNNING" ]]
+	then
+		sudo systemctl stop tocker_$id.service
+	else
+		echo "can't stop an idle container"
+	fi	
 }
 
 container_ls () {
-	
-	echo "contianer lsing"
+	if [[ $@ =~ (-l) ]] || [[ $@ =~ long ]]
+	then
+		long=true
+		header="CONTAINER_ID\t\tIMAGE\t\tCOMMAND\t\tDATE_CREATED\t\tSTATUS\t\t\tIP\t\tMAC\t\t\tNAME\n"
+	else
+		long=false
+		header="CONTAINER_ID\t\tIMAGE\t\tCOMMAND\t\tDATE_CREATED\t\tSTATUS\t\t\tNAME\n"
+	fi	
+	printf $header
+	# container_rm is with tocker_container_rm
+	# container_stop is with systemctl stop if its in running
+	# container_start runs startup script
+	# container_exec is with the get_pid function
+	# image rm image with all its data
+	get_running 
+	for file in $CONT_PATH/*
+	do
+		info=$(stat --printf="%n|%w\n" $file)
+
+		container_id=$(basename $(echo $info | cut -d'|' -f1))
+		image_name=$(grep  "image" $CONT_META_PATH/$container_id.meta | cut -d'=' -f2)
+		date=$(echo $info | cut -d'|' -f2)		
+		# date day year hour and min
+		creation_date="${date::16}:00"
+		entry=$(grep "ENTRYPOINT" $CONT_META_PATH/$container_id.meta | cut -d'=' -f2)
+		container_status=$(get_status $container_id)
+		container_name=$(grep "name" $CONT_META_PATH/$container_id.meta | cut -d'=' -f2)
+		if [[ $long = true ]]
+		then
+			container_IP=$(grep "ipv4" $CONT_META_PATH/$container_id.meta | cut -d'=' -f2)
+			container_MAC=$(grep "mac_address" $CONT_META_PATH/$container_id.meta | cut -d'=' -f2)
+			printf "${container_id::5}\t\t$image_name\t\t$entry\t\t$creation_date\t$container_status\t$container_IP\t$container_MAC\t$container_name\n"
+		else
+			#creation_date ofllowed by 1 tab only due to date length
+			printf "${container_id::5}\t\t$image_name\t\t$entry\t\t$creation_date\t$container_status\t$container_name\n"
+		fi
+
+	done
 }
+
 
 image_get () {
 	tocker_pull "$1"
@@ -198,5 +247,5 @@ image_parser () {
 }
 
 #parser container run --cpuquota 20 --ioread 50B alpine /bin/bash
-#parser container run --network bridge --ioread 50B --name test_container alpine 
-parser image ll
+#parser container run -it --network bridge --ioread 50B --name test_container alpine 
+parser container ll
