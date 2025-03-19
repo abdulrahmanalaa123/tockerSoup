@@ -4,25 +4,29 @@ CONT_PATH := $(BASE_DIR)/tocker_containers
 META_PATH := $(BASE_DIR)/tocker_meta
 LOG_PATH := $(BASE_DIR)/container_logs
 CURRENT_USER := $(shell whoami)
-current_dir := $(shell pwd)
 RULES := /etc/sudoers.d/tocker_rules
 OPT_DIR := /opt/tocker
-HELP := /opt/tocker/helper
-NETWORK := /var/opt/network_config
+HELP := $(OPT_DIR)/helper
+NETWORK := $(OPT_DIR)/network_config
 SLICE := /etc/systemd/system/tocker.slice
 LOGGER_TEMPLATE := /etc/systemd/system/tocker_container_logger@.service
-
-
+CORE_SCRIPT := $(OPT_DIR)/tocker.sh
+HELPERS_SCRIPT := $(OPT_DIR)/helpers.sh
+PARSER_SCRIPT := /home/$(CURRENT_USER)/bin/tocker
 
 #https://stackoverflow.com/questions/649246/is-it-possible-to-create-a-multi-line-string-variable-in-a-makefile
 
 #check_current_dir:
 	#mv ./tockerParser.sh ~/bin/tocker
-#tocker parser would be the entrypoint and would call from opts/tocker/tocker
-#and help would be from /opt/tocker/help
-open_tocker_shell: $(META_PATH)
+open_tocker_shell: $(PARSER_SCRIPT)
 	echo "You're now in a tocker group shell you can relogin your system after running the tocker commands right now to be able to run tocker regularly"
 	newgrp tocker 
+$(PARSER_SCRIPT): $(CORE_SCRIPT)
+	sudo cp tockerParser.sh $(PARSER_SCRIPT)
+$(CORE_SCRIPT): $(HELPERS_SCRIPT)
+	sudo cp tocker.sh $(CORE_SCRIPT)
+$(HELPERS_SCRIPT): $(META_PATH)
+	sudo cp helpers.sh $(HELPERS_SCRIPT)
 $(META_PATH): $(CONT_PATH)
 	sudo mkdir $(META_PATH)
 	sudo mkdir $(META_PATH)/images
@@ -66,4 +70,4 @@ clean:
 	sudo rm -f $(RULES)
 	sudo rm -f $(SLICE)
 	sudo rm -f $(LOGGER_TEMPLATE)
-
+	sudo rm -f $(PARSER_SCRIPT)

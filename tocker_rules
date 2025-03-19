@@ -1,2 +1,2 @@
-Cmnd_Alias      TOCKER_ALIAS= /usr/bin/unshare, /usr/bin/systemctl, /usr/sbin/ip, /usr/sbin/iptables, /usr/sbin/chroot, /usr/bin/systemd, /usr/bin/systemd-run
+Cmnd_Alias      TOCKER_ALIAS= /usr/bin/unshare, /usr/bin/nsenter, /usr/bin/systemctl, /usr/sbin/ip, /usr/sbin/iptables, /usr/sbin/chroot, /usr/bin/systemd, /usr/bin/systemd-run
 %tocker         ALL= (root) NOPASSWD: TOCKER_ALIAS 

@@ -24,6 +24,7 @@ tocker_add_container () {
 	# left without declare to be defined globally after creation
 	id=$(uuidgen)
 	declare meta_file=$CONT_META_PATH/$id.meta
+	# check if the name already exists before creating the meta file 
 	[[ -n ${TOCKER_PARAMS["name"]} ]] && [[ -z $(get_full_id ${TOCKER_PARAMS["name"]}) ]] && echo "name=${TOCKER_PARAMS["name"]}" >> $meta_file || echo "a container with the name ${TOCKER_PARAMS["name"]} already exists" && return 1
 	for option in ${options[@]}
 	do
@@ -50,12 +51,20 @@ get_network (){
 }
 
 tocker_remove_container () {
-	# remove the meta file and delete the directory
+	status=$(get_status $1)
+	if [[ $status = "RUNNING" ]] && [[ $force = false ]]
+	then
+		echo "cant delete a running a container if you want you can add the option -f to stop and delete the container"
+		return 1
+	fi
+	[[ $status = "RUNNING" ]] && sudo systemctl stop -f tocker_$1
+
+	rm -rf $CONT_PATH/$1
 	.  $CONT_META_PATH/$1_cleanup.sh
 	rm $CONT_META_PATH/$1_cleanup.sh
 	rm $CONT_META_PATH/$1_startup.sh
+	rm $CONT_META_PATH/$1.meta
 	rm $LOG_PATH/$1.log
-	#finally remove the container_file 
 }
 
 tocker_add_image () {
@@ -65,8 +74,39 @@ tocker_add_image () {
 }
 
 tocker_remove_image () {
-	declare image=$1
+	declare image=$(image_name_formatter $1)
+	[[ ! -e $OUT_PATH/$image.tar.gz ]] && echo "image $1 doesnt exist" && return 1
+		
+	declare containers=$(grep -lir "name=$input" $CONT_META_PATH)
+	containers=${containers//.meta/}
+	# getting the base name for all containers
+	containers=${containers//$CONT_META_PATH\//}
+	if [[ -n $containers ]] && [[ $force = false ]]
+	then
+		echo "containers $containers are related to the image $1 are you sure you want to delete it? keep in mind once you delete the containers you cant create them again unless you download hte image"
+		echo "0 no"
+		echo "1 yes"
+		select val in 0 1
+		do
+			case $val in
+				0)
+					echo "have a nice day!"
+					;;
+				1)
+				        echo "move on "	
+					;;
+				*)
+					echo "invalid option"
+					;;
+			esac
+		done
+
+	fi
+
 	sed -E -i "/$image/d" "$IMAGE_META_PATH/.ids"
+	rm -f "$IMAGE_META_PATH/$image.env"
+	rm -f "$OUT_PATH/$image.tar.gz"
+
 }
 
 tocker_add_startup (){
@@ -82,14 +122,20 @@ EOF
 # enables you to get the id with the name and id
 get_full_id () {
 	declare input=$1
-	declare presume_id=$(ls $CONT_PATH | grep -o "$1")
-	if [[ -n $presume_id ]]
+	declare presume_id=$(ls $CONT_PATH | grep  "$input")
+
+	#check if its uuid and is not empty
+	if [[ -n $presume_id ]] && [[ $presume_id =~ ^\{?[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}\}?$ ]]
 	then
 		echo $presume_id
 	else
-		declare file_name=$(basename $(grep -lir "name=$input" $CONT_META_PATH))
-		declare id=${file_name%.meta}
-		[[ -n $id ]] && echo $id
+		declare file_name=$(grep -lir "name=$input" $CONT_META_PATH)
+		if [[ -n $file_name ]] 
+		then
+			file_name=$(basename $file_name)
+			declare id=${file_name%.meta}
+			echo "$id"
+		fi
 	fi
 }
 
@@ -99,11 +145,13 @@ get_pid () {
 	echo $pid
 }
 
+
 get_running () {
 	# running containers array
 	declare -ga running=$(ls /sys/fs/cgroup/tocker.slice | grep tocker)
 }
 
+# get status should be ran with get_running always to define the running variable not taken as an input for reducing handling hte overhead of the running array as an input
 get_status () {
 	declare id=$1
 	# if the running array contains the id
@@ -131,7 +179,6 @@ date_difference () {
 
 	# Calculate the difference in seconds
 	diff_seconds=$((current_timestamp - given_timestamp))
-
 	# Check the difference and display the appropriate unit
 	if [ $diff_seconds -lt 60 ]; then
 	  # Difference in seconds

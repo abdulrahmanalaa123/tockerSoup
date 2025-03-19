@@ -6,7 +6,7 @@
 # default CPUQuota=5% IOreadbandwith=20M/s by default B,K,M,G,T IOwritebandwith=  MemoryMin=1G(requested)B,K,M,G,T MemoryMax=2G(requested)B,K,M,G,T(absolute limit)  MemoryHigh2G(softcap)=B,K,M,G,T AllowedCPUs=1,2 (specify which cpus are specified)
 # either enable accounting on the userslice to enable quoting the services i presume 
 
-. ./tocker.sh
+. /opt/tocker/tocker.sh
 
 container_run () {
 	#cpuquota 0-100% including floats
@@ -62,28 +62,43 @@ container_run () {
 	fi
 }
 
-#TODO
-# container exec using systemd process id and exec
-# container start with systemd start
-# container delete with id or name
-# container stop 
-# container ls 
-# image remove by name or id removing all envs and id from the 
-
 container_exec () {
 	id=$(get_full_id $1)
-
-	echo execing $id
+	get_running
+	status=$(get_status $id)
+	[[ -z $id ]] && echo "container $1 doesnt exist" && return 1
+	if [[ $status != "RUNNING" ]]
+	then
+		echo "can't exec into an idle container"
+	else
+		pid=$(get_pid $id)
+		sudo nsenter -t "$pid" -m -u -i -n -p chroot "$CONT_PATH/$id" "${@:2}"
+	fi	
 }
 
 container_start () {
 	id=$(get_full_id $1)
-	echo starting
+	get_running
+	status=$(get_status $id)
+	[[ -z $id ]] && echo "container $1 doesnt exist" && return 1
+	if [[ $status = "RUNNING" ]]
+	then
+		echo "can't start a running container"
+	else
+		. ./$CONT_META_PATH/"$id"_startup.sh
+	fi	
 }
 
 container_rm () {
-	id=$(get_full_id $1)
-	echo removing_cont
+	id=$(get_full_id ${@: -1})
+	force=false
+	[[ -z $id ]] && echo "container ${@: -1} doesnt exist" && return 1
+	if [[ $@ =~ '-f' ]]
+	then
+		force=true
+	fi
+	
+	tocker_remove_container $id
 }
 
 container_stop () {
@@ -109,16 +124,11 @@ container_ls () {
 		header="CONTAINER_ID\t\tIMAGE\t\tCOMMAND\t\tDATE_CREATED\t\tSTATUS\t\t\tNAME\n"
 	fi	
 	printf $header
-	# container_rm is with tocker_container_rm
-	# container_stop is with systemctl stop if its in running
-	# container_start runs startup script
-	# container_exec is with the get_pid function
-	# image rm image with all its data
+
 	get_running 
 	for file in $CONT_PATH/*
 	do
 		info=$(stat --printf="%n|%w\n" $file)
-
 		container_id=$(basename $(echo $info | cut -d'|' -f1))
 		image_name=$(grep  "image" $CONT_META_PATH/$container_id.meta | cut -d'=' -f2)
 		date=$(echo $info | cut -d'|' -f2)		
@@ -146,10 +156,17 @@ image_get () {
 }
 
 image_rm () {
-	echo removing_image
+	image=${@: -1}
+	force=false
+	if [[ $@ =~ '-f' ]]
+	then
+		force=true
+	fi
+	tocker_remove_image "$image"
 }
 
 image_ls () {
+
 	if [[ $@ =~ (-l) ]] || [[ $@ =~ long ]]
 	then
 		long=true
@@ -203,8 +220,12 @@ parser () {
 	elif [[ $1 =~ (run|exec|stop|start) ]];
 	then
 		container_parser $@
+	elif [[ $1 =~ (help) ]]
+	then
+		tocker_help
 	else
 		echo "command $1 isnt recognized as either a contianer or image please specify either container or image"
+		tocker_help 
 		return 1
 	fi
 }
@@ -246,6 +267,4 @@ image_parser () {
 	esac	
 }
 
-#parser container run --cpuquota 20 --ioread 50B alpine /bin/bash
-#parser container run -it --network bridge --ioread 50B --name test_container alpine 
-parser container ll
+parser $@

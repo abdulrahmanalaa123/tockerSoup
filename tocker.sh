@@ -5,7 +5,7 @@
 
 set -o errexit -o pipefail; shopt -s nullglob
 #set -o nounset -o pipefail; shopt -s nullglob
-. ./helpers.sh
+. /opt/tocker/helpers.sh
 
 tocker_pull() {
 	declare image=$1
@@ -125,7 +125,6 @@ tocker_run () {
 		echo "gateway=10.0.3.1" >> $meta_file
 		echo "network_id=$uuid" >> $meta_file
 		echo "mac_address=02:42:ac:11:00$mac" >> $meta_file
-		echo "sudo rm -rf /etc/netns/netns_"$uuid"" >> $CLEANUP
 
 		case $network_type in
 			bridge)

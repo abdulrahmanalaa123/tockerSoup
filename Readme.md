@@ -5,10 +5,10 @@
 - although it needs some work its the same as docker with limited cgroup utilities only available cgroups are provided in the help
 help file
 ```
-tocker container run  --cpuquota [0-100] --iowrite [num(B|K|M|G|T)] --ioread [num(B|K|M|G|T)] --memmax [num(B|K|M|G|T)] --memmin [num(B|K|M|G|T)] --memhigh [num(B|K|M|G|T)] <image_name> <command> # images are associate with an entryPoint can be done when pulling
-tocker container exec <container_id> <command>
-tocker container start <container_id>  keep running the image on the latest entrypoint
-tocker container rm -rf <container_id>  -r remove the container alongside its respective image -f removes the conatainer and stops it abruptly
+tocker container run  --cpuquota [0-100] --memmax [num(B|K|M|G|T)] --memmin [num(B|K|M|G|T)] --memhigh [num(B|K|M|G|T)] <image_name> <command> # images are associate with an entryPoint can be done when pulling
+tocker container exec <container_id|name> <command>
+tocker container start <container_id|name>  keep running the image on the latest entrypoint
+tocker container rm -f <container_id|name> -f removes the conatainer and stops it abruptly
 tocker image rm -f <image_name> 
 tocker container stop <container_id>
 tocker image get <image_name>
@@ -34,6 +34,14 @@ tocker image (la|ls|l)
 - [Was first introduced to cgroups v2 using this article](https://medium.com/@charles.vissol/practicing-cgroup-v2-cad6743bba0c)
 - [great intro into cgroups well prepared and defined](https://www.youtube.com/watch?v=gcX8fqOVCpw&t=3115s)
 - [solidifying your knowledge in cgroups v2 using systemd](https://www.youtube.com/watch?v=gcX8fqOVCpw&t=3115s) 
+- [Cgroups with systemd](https://www.redhat.com/en/blog/cgroups-part-four)
+### systemd
+- [understanding unit files](https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files)
+- [creating oyur own slice file](https://serverfault.com/questions/1024514/systemd-how-do-i-create-a-new-slice-file)
+- [creating template unit files](https://fedoramagazine.org/systemd-template-unit-files/)
+- [Using cgroups with systemd-run](https://medium.com/@charles.vissol/systemd-and-cgroup-7eb80a08234d)
+- [transient services with drop-in files](https://docs.oracle.com/en/operating-systems/oracle-linux/9/systemd/SystemdMngCgroupsV2.html#UsingDropInFiles2)
+- [creating your own transient service](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/resource_management_guide/chap-using_control_groups#sec-Creating_Cgroups)
 ### mounting 
 - [explaining mount bind and mount privelages](https://unix.stackexchange.com/questions/198590/what-is-a-bind-mount)
 - [mounting systems to chroot](https://superuser.com/questions/165116/mount-dev-proc-sys-in-a-chroot-environment)
@@ -43,3 +51,9 @@ tocker image (la|ls|l)
 - [nsenter-docs nsenter is used for execing into the ran namespace](https://www.gnu.org/software/coreutils/manual/html_node/chroot-invocation.html#chroot-invocation)
 - [unshare is used to fork the process and initate it into a new namespace](https://man7.org/linux/man-pages/man1/unshare.1.html)
 - [ip netns used to virtualize the network namespace](https://man7.org/linux/man-pages/man8/ip-netns.8.html)
+### networking
+- [device types in a virtual network](https://developers.redhat.com/blog/2018/10/22/introduction-to-linux-interfaces-for-virtual-networking#team_device)
+- [creating your own virtual network](https://linuxconfig.org/configuring-virtual-network-interfaces-in-linux)
+- [This article was a huge help in both configuring my network and containers in general](https://icicimov.github.io/blog/virtualization/Linux-Container-Basics/)
+- [A complete guide to creating your own virtual network with internet access](https://josephmuia.ca/2018-05-16-net-namespaces-veth-nat/)
+- [adding internet access to your virtual network ](https://askubuntu.com/questions/1214876/ubuntu-server-virtual-network-interface-with-internet-access)
