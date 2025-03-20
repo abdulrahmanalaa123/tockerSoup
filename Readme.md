@@ -1,5 +1,4 @@
 # HOW TO RUN IT?
-## run the make file and provide it with sudo password to setup the proper environment with the proper privelages 
 - clone the repo using git
 ```
 git clone https://github.com/abdulrahmanalaa123/tockerSoup.git tocker
