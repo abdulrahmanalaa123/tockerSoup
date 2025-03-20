@@ -1,11 +1,11 @@
-tocker container run -it --cpuquota [0-100] |T)] --memmax [num(B|K|M|G|T)] --memmin [num(B|K|M|G|T)] --memhigh [num(B|K|M|G|T)] <image_name> <command> # images are associate with an entryPoint can be done when pulling the "-it" option must be put after run to be parsed properly
+tocker container run -it --network (host|bridge|none) --cpuquota [0-100] |T)] --memmax [num(B|K|M|G|T)] --memmin [num(B|K|M|G|T)] --memhigh [num(B|K|M|G|T)] <image_name> <command> # images are associate with an entryPoint can be done when pulling the "-it" option must be put after run to be parsed properly
 tocker container exec <container_id|name> <command>
 tocker container start <container_id|name>  
 tocker container rm -f <container_id|name>  -f removes the conatainer and stops it abruptly
 tocker image rm -f <image_name> 
 tocker container stop <container_id>
 tocker image get <image_name>
-tocker container (la|ls|l)
-tocker image (la|ls|l)
+tocker container (ls|ll) ls -l
+tocker image 
 
 

@@ -1,9 +1,19 @@
 # HOW TO RUN IT?
-- run the make file and provide it with sudo password to setup the proper environment with the proper privelages
-- you can use it using tocker right after in the tockergrp shell or simply relogin for the permissions to take effect 
-- you can view the help file in /opt/tocker/help
-- although it needs some work its the same as docker with limited cgroup utilities only available cgroups are provided in the help
-help file
+## run the make file and provide it with sudo password to setup the proper environment with the proper privelages 
+- clone the repo using git
+`git clone https://github.com/abdulrahmanalaa123/tockerSoup.git tocker`
+- simply cd into the directory where the project is located
+`cd tocker`
+- run the make file
+`make`
+- relogin for permissions to take effect or use it right away in the provided tockergrp shell
+- provide the sudo permissions for the make commands
+`sudo password: `
+- To cleanly uninstall tocker you can simply run the make clean command
+`make clean`
+- you can view the help 
+`tocker help`
+## help file
 ```
 tocker container run  --cpuquota [0-100] --memmax [num(B|K|M|G|T)] --memmin [num(B|K|M|G|T)] --memhigh [num(B|K|M|G|T)] <image_name> <command> # images are associate with an entryPoint can be done when pulling
 tocker container exec <container_id|name> <command>
